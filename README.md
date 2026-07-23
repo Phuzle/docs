@@ -51,8 +51,6 @@ Each app's docs are then reachable directly at `/<slug>/...` — e.g. `/messages
 
 ## Before going to production
 
-- `src/lib/shared.ts` — confirm `gitConfig` matches the real GitHub org/repo once this is pushed
-  (used for "Edit on GitHub" links).
 - `src/app/layout.tsx` — set `NEXT_PUBLIC_SITE_URL` (or update the fallback) once
   `docs.phuzle.com` is live, so Open Graph/social images resolve correctly.
 - No favicon is set yet.

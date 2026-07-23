@@ -6,9 +6,8 @@ export const docsRoute = '';
 export const docsImageRoute = '/og/docs';
 export const docsContentRoute = '/llms.mdx/docs';
 
-// TODO: confirm this matches the actual GitHub org/repo for this docs site once it's pushed.
 export const gitConfig = {
-  user: 'phuzle',
+  user: 'Phuzle',
   repo: 'docs',
   branch: 'main',
 };

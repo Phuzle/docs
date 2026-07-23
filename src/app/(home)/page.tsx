@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +27,12 @@ export default function HomePage() {
             <Card className="h-full transition-colors group-hover:border-fd-primary/50">
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-xl">{app.name}</CardTitle>
+                  <div className="flex items-center gap-3">
+                    {app.icon ? (
+                      <Image src={app.icon} alt="" width={36} height={36} className="rounded-lg" />
+                    ) : null}
+                    <CardTitle className="text-xl">{app.name}</CardTitle>
+                  </div>
                   <Badge variant={app.status === 'live' ? 'default' : 'secondary'}>
                     {statusLabel[app.status]}
                   </Badge>

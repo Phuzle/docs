@@ -8,6 +8,8 @@ export interface AppEntry {
   name: string;
   tagline: string;
   status: 'live' | 'in-development' | 'planned';
+  /** Path under /public, e.g. '/icons/messages.png'. Omit to fall back to no icon. */
+  icon?: string;
 }
 
 export const apps: AppEntry[] = [
@@ -16,5 +18,6 @@ export const apps: AppEntry[] = [
     name: 'Messages',
     tagline: 'A smart, local-first SMS app that sorts your texts, surfaces OTP codes, and tracks your spending — automatically.',
     status: 'live',
+    icon: '/icons/messages.png',
   },
 ];

@@ -1,0 +1,6 @@
+{
+  "title": "Messages",
+  "root": true,
+  "description": "A smart, local-first SMS app",
+  "pages": ["index", "privacy", "terms"]
+}

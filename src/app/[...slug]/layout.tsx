@@ -9,7 +9,10 @@ import { apps } from '@/lib/apps';
 // when a new app is added.
 const iconByUrl = new Map(apps.filter((app) => app.icon).map((app) => [`/${app.slug}`, app.icon!]));
 
-export default function Layout({ children }: LayoutProps<'/[...slug]'>) {
+export default async function Layout({ children, params }: LayoutProps<'/[...slug]'>) {
+  const { slug } = await params;
+  const app = apps.find((entry) => entry.slug === slug?.[0]);
+
   return (
     <DocsLayout
       tree={source.getPageTree()}
@@ -23,7 +26,7 @@ export default function Layout({ children }: LayoutProps<'/[...slug]'>) {
           };
         },
       }}
-      {...baseOptions()}
+      {...baseOptions(app)}
     >
       {children}
     </DocsLayout>

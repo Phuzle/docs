@@ -1,19 +1,29 @@
 ---
 title: Messages
-description: A smart, local-first SMS app that sorts your texts, surfaces OTP codes, and tracks your spending — automatically.
+description: A smart, local-first SMS app that sorts your texts and surfaces OTP codes — automatically.
 ---
 
-## Overview
+## What is Messages?
 
-Messages is an Android SMS client that categorizes your texts (Personal, OTP, Transactions,
-Promotions) entirely on-device, surfaces one-time codes with a single tap to copy, and keeps a
-running passbook of your spending derived from your bank/card texts — all without your message
-content ever leaving your phone.
+**Messages** is an Android SMS app, published by Phuzle Labs, that replaces your phone's default
+texting app. It automatically sorts incoming texts into Personal, OTP, Transactions, and
+Promotions, and surfaces one-time verification codes for one-tap copying — all using rules that
+run entirely on your device. This page is the official homepage for the Messages app.
 
 <Cards>
   <Card title="Privacy Policy" href="/messages/privacy" description="What data Messages accesses, and what happens to it." />
   <Card title="Terms of Service" href="/messages/terms" description="The terms covering your use of the app." />
 </Cards>
+
+## Why Messages asks for the permissions it does
+
+- **Default SMS app role, SMS/contacts access** — required by Android for any app to send,
+  receive, and organize text messages at all; this is not optional for an SMS client.
+- **Google Sign-In and Google Drive access** — only requested if you turn on Drive backup
+  yourself. Messages requests the narrow `drive.appdata` scope, which limits it to a private,
+  per-app folder in your Drive that isn't visible in your regular files and that no one at Phuzle
+  Labs can read. It's used solely to store and restore your own encrypted message backup. See the
+  [Privacy Policy](/messages/privacy) for the full breakdown of every permission and data type.
 
 ## Key features
 

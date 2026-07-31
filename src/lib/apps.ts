@@ -7,17 +7,22 @@ export interface AppEntry {
   slug: string;
   name: string;
   tagline: string;
-  status: 'live' | 'in-development' | 'planned';
+  status: "live" | "in-development" | "planned";
   /** Path under /public, e.g. '/icons/messages.png'. Omit to fall back to no icon. */
   icon?: string;
+  version?: string;
+  github?: `https://github.com/phuzle/${string}`;
 }
 
 export const apps: AppEntry[] = [
   {
-    slug: 'messages',
-    name: 'Messages',
-    tagline: 'A smart, local-first SMS app that sorts your texts, surfaces OTP codes, and tracks your spending — automatically.',
-    status: 'live',
-    icon: '/icons/messages.png',
+    slug: "messages",
+    name: "Messages",
+    tagline:
+      "A smart, local-first SMS app that sorts your texts, surfaces OTP codes, and tracks your spending — automatically.",
+    status: "live",
+    icon: "/icons/messages.png",
+    version: "0.0.1-beta.9",
+    github: "https://github.com/phuzle/messages",
   },
 ];

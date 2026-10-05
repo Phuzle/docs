@@ -33,6 +33,14 @@ Parameters: `code` (query, required), `state` (query, required), `nonce` (query,
 
 Current member and organization. Auth: **session or API key**. Success: `200`.
 
+### `POST /v1/auth/switch-org`
+
+Act in another organization you belong to. Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `orgId` | string | required |
+
 ### `POST /v1/auth/logout`
 
 Revoke the current session. Auth: **session or API key**. Success: `200`.
@@ -79,11 +87,96 @@ Revoke a pairing link. Auth: **session or API key**. Success: `200`.
 
 Parameters: `id` (path, required)
 
+## Members
+
+### `GET /v1/org/members`
+
+Members, pending invites and seat usage. Auth: **session or API key**. Success: `200`.
+
+### `PATCH /v1/org/members/\{memberId\}`
+
+Change a member's role (admin; only the owner changes admin roles). Auth: **session or API key**. Success: `200`.
+
+Parameters: `memberId` (path, required)
+
+| Field | Type | |
+|---|---|---|
+| `role` | `admin` \| `member` | required |
+
+### `DELETE /v1/org/members/\{memberId\}`
+
+Remove a member, or leave (use your own id). Auth: **session or API key**. Success: `200`.
+
+Parameters: `memberId` (path, required)
+
+### `POST /v1/org/invites`
+
+Create a single-use invite link. Auth: **session or API key**. Success: `201`.
+
+| Field | Type | |
+|---|---|---|
+| `role` | `admin` \| `member` |  |
+| `email` | string |  |
+| `ttlSeconds` | `86400` \| `259200` \| `604800` |  |
+
+### `DELETE /v1/org/invites/\{id\}`
+
+Revoke a pending invite. Auth: **session or API key**. Success: `200`.
+
+Parameters: `id` (path, required)
+
+### `POST /v1/invites/preview`
+
+What an invite link is for (does not consume it). Auth: **none**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `token` | string | required |
+
+### `POST /v1/invites/accept`
+
+Join the organization the invite is for. Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `token` | string | required |
+
+## Billing
+
+### `GET /v1/org/billing`
+
+Plan, paid-through date, every plan's limits, history and pending upgrade requests. Auth: **session or API key**. Success: `200`.
+
+### `POST /v1/org/billing/upgrade-request`
+
+Ask for a plan change (owner). Until checkout exists, the operator grants it.. Auth: **session or API key**. Success: `201`.
+
+| Field | Type | |
+|---|---|---|
+| `tier` | `pro` \| `team` | required |
+| `note` | string |  |
+
 ## Org
+
+### `PATCH /v1/org`
+
+Rename the organization. Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `name` | string | required |
+
+### `DELETE /v1/org`
+
+Delete the organization (owner). Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `confirmSlug` | string | required |
 
 ### `POST /v1/org`
 
-Create your organization (onboarding). Auth: **session or API key**. Success: `201`.
+Create an organization (onboarding, or an additional one). Auth: **session or API key**. Success: `201`.
 
 | Field | Type | |
 |---|---|---|
@@ -94,6 +187,14 @@ Create your organization (onboarding). Auth: **session or API key**. Success: `2
 
 Your organization, tier and limits. Auth: **session or API key**. Success: `200`.
 
+### `POST /v1/org/transfer`
+
+Transfer ownership to another member (owner). Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `memberId` | string | required |
+
 ### `GET /v1/org/slug-available`
 
 Check whether an org slug is free. Auth: **session or API key**. Success: `200`.
@@ -103,6 +204,42 @@ Parameters: `slug` (query, required)
 ### `GET /v1/org/usage`
 
 Today's usage against your limits. Auth: **session or API key**. Success: `200`.
+
+## Profile
+
+### `GET /v1/profile`
+
+Your profile and organizations. Auth: **session or API key**. Success: `200`.
+
+### `PATCH /v1/profile`
+
+Update your display name. Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `displayName` | string | required |
+
+### `DELETE /v1/profile`
+
+Delete your account. Auth: **session or API key**. Success: `200`.
+
+| Field | Type | |
+|---|---|---|
+| `confirmEmail` | string | required |
+
+### `GET /v1/profile/sessions`
+
+Where you're signed in. Auth: **session or API key**. Success: `200`.
+
+### `POST /v1/profile/sessions/revoke-others`
+
+Sign out everywhere else. Auth: **session or API key**. Success: `200`.
+
+### `DELETE /v1/profile/sessions/\{id\}`
+
+Sign out one session. Auth: **session or API key**. Success: `200`.
+
+Parameters: `id` (path, required)
 
 ## Topics
 
@@ -121,7 +258,7 @@ Create a topic. Auth: **session or API key**. Success: `201`.
 | `slug` | string | required |
 | `name` | string | required |
 | `description` | string |  |
-| `hue` | `coral` \| `blue` \| `amber` \| `green` \| `plum` \| `teal` \| `rose` \| `slate` |  |
+| `hue` | `indigo` \| `coral` \| `blue` \| `amber` \| `green` \| `plum` \| `teal` \| `rose` \| `slate` |  |
 
 ### `GET /v1/topics/\{id\}`
 
@@ -139,7 +276,7 @@ Parameters: `id` (path, required)
 |---|---|---|
 | `name` | string |  |
 | `description` | string |  |
-| `hue` | `coral` \| `blue` \| `amber` \| `green` \| `plum` \| `teal` \| `rose` \| `slate` |  |
+| `hue` | `indigo` \| `coral` \| `blue` \| `amber` \| `green` \| `plum` \| `teal` \| `rose` \| `slate` |  |
 
 ### `DELETE /v1/topics/\{id\}`
 

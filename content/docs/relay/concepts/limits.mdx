@@ -1,19 +1,24 @@
 ---
-title: Limits
-description: Free tier limits and how they behave.
+title: Plans and limits
+description: What each plan includes and how limits behave.
 ---
 
-| Limit | Free tier |
-|---|---|
-| Members per org | 1 |
-| Topics | 10 |
-| Devices per topic | 5 |
-| API keys | 10 |
-| Triggers per day (per org) | 1,000 |
-| Plaintext size | 2 KiB |
-| Actions per message | 3 |
-| Delivery-log retention | 30 days |
-| Live pairing links | 20 |
+| | Free | Pro | Team |
+|---|---|---|---|
+| Topics | 10 | 50 | 200 |
+| Devices per topic | 5 | 25 | 100 |
+| API keys | 10 | 50 | 200 |
+| Triggers per day (org) | 1,000 | 50,000 | 500,000 |
+| History and activity | 24 hours | 90 days | 1 year |
+| Members | 1 | 1 | 10 |
+| Plaintext size | 2 KiB | 2 KiB | 2 KiB |
+| Actions per message | 3 | 3 | 3 |
 
-Going over the daily cap returns `429 quota_exceeded` with a `Retry-After` header. Limits are
-configuration, so they may change.
+<Callout type="warn" title="Paid plans are not on sale yet">
+	Pro and Team are being rolled out by invitation. Numbers may change before general availability.
+</Callout>
+
+- Plans belong to the **organization**, not a person.
+- Going over the daily cap returns `429 quota_exceeded` with a `Retry-After` header.
+- **Downgrading never deletes anything.** Existing topics, devices and keys keep working; you just can't create new ones above the lower limit. History older than the new window is removed.
+- Payload size and actions per message are the same on every plan.

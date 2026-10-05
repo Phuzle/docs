@@ -1,0 +1,32 @@
+---
+title: Actions
+description: Notification buttons that call your HTTPS endpoints.
+---
+
+```ts
+await relay.send({
+  topic: "acme-alerts",
+  title: "api-3 is unhealthy",
+  actions: [
+    { label: "Acknowledge", request: { method: "POST", url: "https://ops.example.com/ack/api-3" } },
+    {
+      label: "Restart api-3",
+      style: "destructive",
+      confirm: true,
+      request: { method: "POST", url: "https://ops.example.com/restart/api-3", headers: { Authorization: "Bearer …" } },
+    },
+  ],
+});
+```
+
+Up to **3** actions. Action contents are inside the encrypted payload, so Relay does not see your
+URLs or headers on direct sends.
+
+## Safety rules enforced by the app
+
+- **HTTPS only.** `http://` actions are refused.
+- Redirects are followed only to the **same host and port**; headers are never sent elsewhere.
+- Actions run **only when you tap them**. Destructive actions show a confirmation sheet with the
+  exact destination.
+- The result ("Acknowledged", "failed (405)") is shown on the notification and in the inbox.
+- Put a short-lived, narrowly scoped token in the action's headers rather than a long-lived secret.

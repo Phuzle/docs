@@ -1,0 +1,6 @@
+{
+  "title": "Relay",
+  "root": true,
+  "description": "End-to-end encrypted push notifications for developers",
+  "pages": ["index", "quickstart", "concepts", "guides", "reference", "privacy", "terms"]
+}

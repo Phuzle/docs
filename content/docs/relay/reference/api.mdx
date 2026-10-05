@@ -1,0 +1,33 @@
+---
+title: API
+description: Overview of the Relay HTTP API.
+---
+
+Base URL: `https://api-relay.phuzle.com/v1`. The live OpenAPI 3.1 spec is at `/openapi.json` and an
+interactive reference at `/docs`.
+
+| Area | Auth | Examples |
+|---|---|---|
+| Dashboard (orgs, topics, devices, keys, integrations) | session cookie via the console | `GET /v1/topics` |
+| Trigger | `Authorization: Bearer rly_…` | `GET /v1/trigger/recipients`, `POST /v1/trigger` |
+| Devices (the Android app) | Ed25519 request signature | `GET /v1/devices/me/subscriptions` |
+| Webhooks | HMAC signature | `POST /v1/trigger/from/github/{id}` |
+
+Conventions: JSON in camelCase, errors as `{ error, code?, details? }`, lists as `{ data, total }`
+with `limit` (max 100) and `offset`. Changes inside `/v1` are additive.
+
+Most developers should use the [SDK](/docs/relay/guides/sdk), which handles key fetching and
+encryption. `POST /v1/trigger` expects already-encrypted envelopes:
+
+```json
+{
+  "topic": "acme-alerts",
+  "messageId": "01J…",
+  "priority": "high",
+  "ttlSeconds": 3600,
+  "envelopes": [{ "deviceId": "…", "enc": "…", "ct": "…" }]
+}
+```
+
+It responds `202` with `{ messageId, accepted, rejected, missing }`. Send an `Idempotency-Key`
+header to make retries safe.

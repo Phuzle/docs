@@ -1,0 +1,32 @@
+---
+title: Relay
+description: Push notifications for developers — end-to-end encrypted, actionable, and no app to build.
+---
+
+## What is Relay?
+
+**Relay** sends notifications from your code, CI, or servers to your phone — without you building a
+mobile app, and without handing your message content to anyone in between.
+
+- **End-to-end encrypted.** Your SDK encrypts each message on your machine for each paired phone.
+  Relay and Google's FCM only ever carry ciphertext.
+- **Actionable.** Attach up to three buttons ("Acknowledge", "Restart api-3") that fire an HTTPS
+  request straight from the notification.
+- **Pair with a link or QR.** Open the link on a phone with the Relay app, confirm, done.
+- **Integrations.** A GitHub webhook endpoint turns repository events into notifications.
+
+<Callout type="warn" title="Relay is in development">
+	The Android app and `@phuzlelabs/relay` SDK are not published yet. These docs describe the
+	current design and behaviour; details may change before release.
+</Callout>
+
+## How it fits together
+
+1. You create a **topic** (e.g. `acme-alerts`) in the web console.
+2. You **pair** one or more phones to it with a single-use link or QR code.
+3. Your code **sends** a message with an API key. The SDK fetches the topic's device public keys,
+   encrypts one envelope per device, and posts them to Relay.
+4. Relay queues the envelopes, delivers them through FCM, and your phone decrypts and shows the
+   notification.
+
+Start with the [Quickstart](/docs/relay/quickstart).

@@ -1,0 +1,45 @@
+---
+title: Node & Bun SDK
+description: Send encrypted notifications from your code with @phuzlelabs/relay.
+---
+
+<Callout type="warn" title="Not published yet">
+	`@phuzlelabs/relay` is not on npm yet.
+</Callout>
+
+```ts
+import { Relay, RelayError } from "@phuzlelabs/relay";
+
+const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
+
+try {
+  const r = await relay.send({
+    topic: "acme-alerts",
+    title: "api-3 is unhealthy",
+    body: "3 failed health checks in a row",
+    priority: "urgent",
+    tags: ["prod"],
+    idempotencyKey: "healthcheck-api-3-2026-10-05T10",
+  });
+  console.log(r.accepted, r.rejected, r.missing);
+} catch (e) {
+  if (e instanceof RelayError) console.error(e.status, e.message);
+}
+```
+
+## Behaviour
+
+- Encrypts locally, one envelope per paired device. Plaintext over 2 KiB throws `PayloadTooLargeError`.
+- If a device was added since the key set was fetched, the SDK refreshes recipients and retries once.
+- `idempotencyKey` makes retries safe for 24 hours.
+- Options: `baseUrl`, `fetch`, `maxRetries`. The CLI reads `RELAY_API_KEY` and `RELAY_API_URL`.
+
+## CLI
+
+```bash
+relay send --topic acme-alerts --title "Disk 91%" --priority high \
+  --action "Acknowledge=POST https://ops.example.com/ack/db-1" \
+  --action "Reboot!=POST https://ops.example.com/reboot/db-1"
+```
+
+A trailing `!` on the label marks the action destructive.

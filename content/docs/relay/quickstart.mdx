@@ -1,0 +1,46 @@
+---
+title: Quickstart
+description: From sign-in to your first encrypted notification in a few minutes.
+---
+
+## 1. Create an org and a topic
+
+Sign in to the console at `relay.phuzle.com` with Google, choose an org slug, then create a topic.
+Its full name looks like `acme-alerts` (`<org>-<topic>`).
+
+## 2. Pair your phone
+
+Open the topic → **Devices** → **Pair a device**. Pick how long the link should live (15 minutes,
+1 hour or 24 hours). Scan the QR code with the Relay app, or open the link on the phone. The app
+shows which topic you are joining — confirm it.
+
+The link is **single-use**: the first phone to confirm wins, so share it carefully. See
+[Pairing links](/docs/relay/concepts/pairing-links).
+
+## 3. Create an API key
+
+Console → **API keys** → create a key scoped to `trigger:<topic-slug>`. It is shown once.
+
+## 4. Send a notification
+
+```ts
+import { Relay } from "@phuzlelabs/relay";
+
+const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
+
+await relay.send({
+  topic: "acme-alerts",
+  title: "Deploy failed",
+  body: "api-3 exited 137",
+  priority: "high",
+});
+```
+
+Or from a shell:
+
+```bash
+export RELAY_API_KEY=rly_...
+relay send --topic acme-alerts --title "Deploy failed" --body "api-3 exited 137" --priority high
+```
+
+You can also use **Send test** on the topic page; the browser encrypts the message itself.

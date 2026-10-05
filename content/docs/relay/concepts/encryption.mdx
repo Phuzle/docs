@@ -1,0 +1,37 @@
+---
+title: Encryption
+description: What is encrypted, who can read it, and where the honest limits are.
+---
+
+## Direct sends are end-to-end encrypted
+
+When you send through the SDK or CLI, the message is encrypted **on your machine** for each paired
+phone using HPKE (RFC 9180: X25519, HKDF-SHA256, ChaCha20-Poly1305). Only the phone's private key,
+which never leaves the device, can open it. Relay stores ciphertext only while it is queued and
+clears it as soon as delivery finishes. FCM carries ciphertext too.
+
+Each ciphertext is bound to its device, message and topic, so it cannot be replayed to a different
+phone or reused for another message.
+
+## Phones sign their requests
+
+Every phone has a separate signing identity. Requests from the app are signed and timestamped, and
+the server rejects replays. The public keys the SDK encrypts to are signed by that identity, so a
+tampered key set can be detected.
+
+## Integrations are server-assisted, not end-to-end
+
+For a GitHub webhook, Relay itself receives the event, formats it, and encrypts it for your phones.
+That means Relay briefly sees that content in memory. Those notifications are labelled
+**server-assisted** in the app, never "end-to-end encrypted".
+
+## What Relay can still see
+
+Metadata: topic, which devices are subscribed, message size, priority, timestamps, and delivery
+status. Never the title, body, or actions.
+
+## Limits
+
+- Plaintext is capped at **2 KiB** per message.
+- A compromised Relay server could try to *inject* a notification or action. The app mitigates this
+  by only running actions when you tap them, requiring HTTPS, and confirming destructive ones.

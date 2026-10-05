@@ -34,4 +34,13 @@ export const apps: AppEntry[] = [
     version: "0.0.1",
     github: "https://github.com/phuzle/permit",
   },
+  {
+    slug: "relay",
+    name: "Relay",
+    tagline:
+      "Push notifications for developers — end-to-end encrypted, actionable, with no app to build.",
+    status: "in-development",
+    version: "0.0.1",
+    github: "https://github.com/phuzle/relay",
+  },
 ];

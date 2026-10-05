@@ -1,0 +1,24 @@
+---
+title: Errors
+description: Error shape and machine-readable codes.
+---
+
+```json
+{ "error": "Daily trigger limit reached", "code": "quota_exceeded" }
+```
+
+Validation errors add `details: [{ path, message }]`. Server errors never expose internals.
+
+| `code` | Meaning |
+|---|---|
+| `bad_signature` | Device signature invalid |
+| `stale_timestamp` | Request time is more than 5 minutes off |
+| `replayed_nonce` | Nonce already used |
+| `token_expired` / `token_used` | Pairing link expired or already consumed |
+| `scope_denied` | API key lacks the scope for this topic |
+| `quota_exceeded` | Daily cap reached (`Retry-After` is set) |
+| `payload_too_large` | Plaintext over the limit |
+| `keyset_stale` | Recipients changed; refetch and retry |
+| `topic_limit` | Topic or device limit reached |
+| `device_inactive` | Device was deactivated |
+| `slug_taken` | Org or topic slug already exists |

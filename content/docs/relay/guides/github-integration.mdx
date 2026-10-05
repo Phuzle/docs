@@ -1,0 +1,18 @@
+---
+title: GitHub integration
+description: Turn repository events into notifications.
+---
+
+1. Topic → **Integrations** → add GitHub. You get a webhook URL and a secret (shown once).
+2. In your GitHub repo or org: Settings → Webhooks → add the URL, content type `application/json`,
+   and the secret. Pick the events you want.
+3. GitHub's ping returns success; events now arrive as notifications.
+
+Relay verifies `X-Hub-Signature-256` over the raw body before reading it, answers `401` for any
+bad signature, ignores duplicate deliveries, and responds `202` quickly. You can rotate the secret
+or disable the integration at any time.
+
+<Callout type="warn" title="Server-assisted encryption">
+	Relay formats and encrypts GitHub events itself, so they are not end-to-end encrypted. The app
+	marks them with a "server-assisted" badge. See [Encryption](/docs/relay/concepts/encryption).
+</Callout>

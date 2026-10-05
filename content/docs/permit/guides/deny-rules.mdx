@@ -1,0 +1,99 @@
+---
+title: Deny rules
+description: How .cannot() carves an exception out of a broader .can(), in plain language.
+---
+
+## The problem `.cannot()` solves
+
+`.can()` alone only lets you say what's *allowed*. If you want to say "this role can do
+everything **except** one specific thing," there's no way to write that with `.can()` rules
+alone — you'd have to list out every single action except the one you're excluding, which breaks
+the moment you add a new action to your app.
+
+`.cannot()` is the fix: it explicitly denies something, and a deny always wins over an allow, no
+matter how the allow was written.
+
+```ts
+.role("platform_admin")
+  .can("*", "*")            // can do anything...
+  .cannot("delete", "Blog") // ...except this one thing
+```
+
+## Deny always wins, no matter how specific the allow is
+
+It doesn't matter that `.can("*", "*")` is a sweeping wildcard and `.cannot("delete", "Blog")` is
+much more specific, or that they're on the same role. Permit checks denies first, and a matching
+deny overrides a matching allow, full stop.
+
+```ts
+const checker = ac.for({ id: "root" }, [{ role: "platform_admin", scopeId: "p1" }], { platform: "p1" });
+
+checker.can("update", "Blog"); // true — covered by "*","*"
+checker.can("delete", "Blog"); // false — "*","*" says yes, but the cannot() says no. Deny wins.
+```
+
+## Deny also wins across different roles
+
+This holds even when the allow and the deny come from **two different roles** the same user
+happens to hold:
+
+```ts
+.role("editor")
+  .can("manage", "Blog")
+.role("suspended")
+  .cannot("*", "*") // a blanket deny — layer this on top of any other role
+```
+
+```ts
+const grants = [
+  { role: "editor", scopeId: "blog_42" }, // would normally allow managing the blog
+  { role: "suspended", scopeId: "blog_42" }, // layered on top to revoke access
+];
+const checker = ac.for(user, grants, { blog: "blog_42" });
+
+checker.can("read", "Blog"); // false — the "suspended" grant's blanket deny wins
+```
+
+This is the standard pattern for **temporarily revoking access without touching someone's
+existing role**: add a second grant with a broad `.cannot()`, instead of removing or editing their
+real role.
+
+## Deny rules can be conditional too
+
+Just like `.can()` accepts a third function argument for "only when...", so does `.cannot()`:
+
+```ts
+.role("editor")
+  .can("delete", "Post")
+  .cannot("delete", "Post", (ctx) => (ctx.resource as { locked?: boolean })?.locked === true)
+```
+
+An editor can delete posts — except locked ones:
+
+```ts
+checker.can("delete", "Post", { locked: false }); // true
+checker.can("delete", "Post", { locked: true }); // false — the conditional cannot() kicks in
+```
+
+<Callout type="info" title="Zero cost if you never use it">
+	Blueprints that never call `.cannot()` don't pay for deny-checking at all — adding your first
+	`.cannot()` anywhere is what turns that check on. If your app doesn't need exceptions, don't
+	worry about this feature affecting performance.
+</Callout>
+
+## How this interacts with the client-side matrix
+
+If you're using [client/server sync](/permit/guides/client-server-sync), the `serialize()`
+function that flattens permissions for the browser is deny-aware: a `resource:action` pair is only
+sent to the client as `true` if it's both allowed *and* no deny rule could possibly apply to it.
+A pair with a conditional deny attached is left out of the client matrix entirely — the server
+remains the only place a deny is ever actually enforced.
+
+## Try it yourself
+
+```bash
+bun run examples/deny-rules/index.ts
+```
+
+See it at [`examples/deny-rules/index.ts`](https://github.com/phuzle/permit/blob/main/examples/deny-rules/index.ts)
+on GitHub.

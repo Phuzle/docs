@@ -1,0 +1,238 @@
+---
+title: Getting Started
+description: Start from zero and build up every concept one small step at a time.
+---
+
+This is the page to read first. It builds up from nothing, with a plain-English explanation
+before every piece of code. If you already understand the pieces and just want a lookup table,
+skip to [Concepts](/permit/concepts) instead.
+
+## The problem, in plain English
+
+You have users. You want to let some of them do certain things and not others. "Can this person
+delete this blog post, right now?" — you need a yes/no answer to that question, over and over,
+all across your app: on the server before you save anything, and on the client to decide what
+buttons to show.
+
+Permit lets you write your rules down *once*, in one file, and then ask it that yes/no question
+wherever you need to.
+
+## The four words you need to know
+
+Every rule is built out of four ingredients. Here's what each one means, before any code:
+
+- **Role** — a label you give a user. Like a job title: `"admin"`, `"editor"`, `"writer"`.
+- **Resource** — the *kind* of thing a rule protects. Like a noun: `"Post"`, `"Blog"`, `"Invoice"`.
+- **Action** — the *verb* — what someone is trying to do to a resource: `"create"`, `"read"`,
+  `"update"`, `"delete"`.
+- **Grant** — the fact that one specific user holds one specific role. This is the only piece that
+  lives in *your* database, not in Permit — e.g. a row saying "user 42 is an `editor`".
+
+A rule glues these together: **"the `editor` role can `update` a `Post`."** Then, for a real
+user, you check: *"does user 42 (who holds the `editor` grant) pass that rule?"*
+
+There's a fifth word, **scope**, but it only matters once your app has more than one "area" (like
+multiple blogs, each with their own editors). We'll get to it in step 3 — ignore it until then.
+
+## 1. The simplest possible setup
+
+Let's start with an app that has no separate "areas" at all — just one global place. One role, one
+resource, two actions.
+
+```ts
+import { definePermissions } from "@phuzle/permit";
+
+const config = {
+	scopes: ["platform"], // one single "area" — required by the shape, but you can
+	// ignore what it means until step 3
+	roles: {
+		admin: "platform", // the "admin" role lives at the "platform" level
+	},
+	resources: ["Post"],
+	actions: ["read", "write"],
+} as const;
+
+const ac = definePermissions(config)
+	.role("admin")
+	.can("read", "Post")
+	.can("write", "Post")
+	.build();
+```
+
+Now ask the yes/no question for a real user:
+
+```ts
+const checker = ac.for(
+	{ id: "user_1" }, // who is asking
+	[{ role: "admin" }], // what role(s) they hold — this is their "grant"
+	{}, // where the thing they're checking lives — empty for now, see step 3
+);
+
+checker.can("write", "Post"); // true
+```
+
+That's the whole shape of the library. Everything else on this page is a refinement on top of this.
+
+## 2. Add a second, more limited role
+
+Real apps have more than one kind of user. Add a `viewer` role that can only read:
+
+```ts
+const ac = definePermissions(config)
+	.role("admin")
+	.can("read", "Post")
+	.can("write", "Post")
+	.role("viewer")
+	.can("read", "Post")
+	.build();
+```
+
+```ts
+const viewerChecker = ac.for({ id: "user_2" }, [{ role: "viewer" }], {});
+viewerChecker.can("read", "Post"); // true
+viewerChecker.can("write", "Post"); // false
+```
+
+Nothing new conceptually — just two roles instead of one, each with their own list of `.can()`
+rules.
+
+## 3. Real apps have more than one "area"
+
+So far there's been only one global place — the whole app is one big room, and any role applies
+everywhere. Most real apps aren't like that. Think of a blogging platform: there's the *platform
+company* (which can do anything, anywhere), and then each individual *blog* has its own editor who
+should only be able to touch **that one blog** — not every blog on the platform.
+
+That's what **scope** is for: it says *at what level does this role apply?*
+
+```ts
+const config = {
+	scopes: ["platform", "blog"], // ordered broadest -> narrowest
+	roles: {
+		platform_admin: "platform", // applies everywhere on the platform
+		editor: "blog", // applies to ONE specific blog
+	},
+	resources: ["Blog", "Post"],
+	actions: ["read", "create", "update", "delete", "publish"],
+} as const;
+
+const ac = definePermissions(config)
+	.role("platform_admin")
+	.can("*", "*") // "*" means "any resource" / "any action" — everything
+	.role("editor")
+	.can("read", "Post")
+	.can("create", "Post")
+	.can("update", "Post")
+	.can("publish", "Post")
+	.build();
+```
+
+An `editor` grant now needs to say **which blog**, since the role applies at the `blog` level, not
+the whole platform:
+
+```ts
+const grants = [{ role: "editor", scopeId: "blog_42" }]; // "this user edits blog_42, specifically"
+```
+
+And now, when you check something, you have to say **which blog the thing you're checking belongs
+to** — this is called `scopeContext`:
+
+```ts
+const checker = ac.for(
+	{ id: "user_3" },
+	grants,
+	{ blog: "blog_42" }, // "the Post I'm checking right now lives in blog_42"
+);
+
+checker.can("update", "Post"); // true — the grant is for blog_42, and that's where this Post lives
+```
+
+If you instead pass a *different* blog's id:
+
+```ts
+const otherChecker = ac.for({ id: "user_3" }, grants, { blog: "blog_99" });
+otherChecker.can("update", "Post"); // false — this editor's grant is for blog_42, not blog_99
+```
+
+**In one sentence: `grants` says where a user has power, `scopeContext` says where the thing
+they're touching actually lives, and Permit checks whether the two match.**
+
+<Callout type="warn" title="Easy to trip over">
+	If you forget to include an "area" id in `scopeContext` (e.g. only pass `{ blog: "blog_42" }`
+	but your role actually lives at an even broader level you also forgot), the matching grant
+	quietly stops applying — it fails closed instead of throwing an error. The [Scope &
+	scopeContext](/permit/guides/scope-context) guide covers this in detail, with a worked example
+	of the bug.
+</Callout>
+
+## 4. Letting a rule look at the actual data
+
+Sometimes "the role" isn't enough — you want a rule like *"a writer can edit their **own** posts,
+but not other writers' posts."* You can't know that from the role alone; you need to look at the
+actual post. Pass a third argument to `.can()` — a function that returns `true`/`false`:
+
+```ts
+const ac = definePermissions(config)
+	.role("editor")
+	.can("update", "Post") // editors can update ANY post on their blog
+	.role("writer")
+	.can(
+		"update",
+		"Post",
+		(ctx) => (ctx.resource as { authorId?: string })?.authorId === ctx.user.id,
+	)
+	.build();
+```
+
+`ctx.resource` is whatever you pass in as the third argument when you check — usually the actual
+database row:
+
+```ts
+const checker = ac.for({ id: "user_4" }, [{ role: "writer", scopeId: "blog_42" }], { blog: "blog_42" });
+
+checker.can("update", "Post", { authorId: "user_4" }); // true — they wrote it
+checker.can("update", "Post", { authorId: "someone_else" }); // false — someone else wrote it
+```
+
+This kind of rule ("look at the data, not just the role") is usually called **ABAC**
+(attribute-based access control), as opposed to plain **RBAC** (role-based access control) from
+the earlier steps. You don't need to remember those terms — just know that adding a third function
+argument to `.can()` is how you go from "this role can always do X" to "this role can do X, but
+only when...".
+
+## Where to go from here
+
+You now know everything Permit is built from. These go deeper on specific pieces you might need:
+
+<Cards>
+	<Card
+		title="Scope & scopeContext"
+		href="/permit/guides/scope-context"
+		description="More on the grants / scopeContext split from step 3, including the fail-closed bug and a fully worked example."
+	/>
+	<Card
+		title="Deny rules"
+		href="/permit/guides/deny-rules"
+		description="How to say 'except for this one thing' when a plain .can() list can't express an exception."
+	/>
+	<Card
+		title="Client/server sync"
+		href="/permit/guides/client-server-sync"
+		description="Send a safe, simplified snapshot of a user's permissions to the browser for UI decisions."
+	/>
+	<Card
+		title="Framework adapters"
+		href="/permit/guides/framework-adapters"
+		description="React, Vue, and Svelte components/hooks for reactive permission checks in your UI."
+	/>
+	<Card
+		title="Real-life scenarios"
+		href="/permit/guides/real-life-scenarios"
+		description="Two full worked examples: a multi-tenant SaaS app and a two-sided marketplace."
+	/>
+	<Card
+		title="Concepts (glossary)"
+		href="/permit/concepts"
+		description="A short reference table, once you already understand the pieces and just want to look something up."
+	/>
+</Cards>

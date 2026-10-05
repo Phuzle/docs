@@ -1,0 +1,194 @@
+---
+title: Real-life scenarios
+description: Two full worked examples, end to end — a multi-tenant SaaS app and a marketplace.
+---
+
+Everywhere else in these docs uses one small, made-up domain to keep examples focused. This page
+is the opposite: two complete, realistic blueprints, each walked through from the blueprint all
+the way to a UI decision, so you can see how the pieces actually combine in an app that looks like
+something you'd really build.
+
+## Scenario 1: a project management SaaS
+
+The shape: a company (`organization`) signs up, and inside it people create `project`s. Some
+people run the whole company account; others are admins of one specific project; regular members
+can only touch tasks assigned to them.
+
+### 1. Model the blueprint
+
+```ts title="permissions.ts"
+import { definePermissions } from "@phuzle/permit";
+
+export const config = {
+	scopes: ["organization", "project"],
+	roles: {
+		org_owner: "organization", // runs the whole company account
+		project_admin: "project", // runs one specific project
+		member: "project", // works inside one specific project
+	},
+	resources: ["Organization", "Project", "Task", "Member"],
+	actions: ["create", "read", "update", "delete", "manage"],
+} as const;
+
+export const ac = definePermissions(config)
+	.role("org_owner")
+	.can("*", "*")
+	.role("project_admin")
+	.can("manage", "Project")
+	.can("manage", "Task")
+	.can("manage", "Member")
+	.role("member")
+	.can("read", "Project")
+	.can("create", "Task")
+	.can("read", "Task")
+	.can(
+		"update",
+		"Task",
+		// members can only update tasks assigned to them
+		(ctx) => (ctx.resource as { assigneeId?: string })?.assigneeId === ctx.user.id,
+	)
+	.build();
+
+export type AC = typeof ac;
+```
+
+### 2. Store grants against your users
+
+This part is entirely yours — a `user_roles` table, a JWT claim, whatever you already have. The
+shape just needs to match `Grant<AC>`:
+
+```ts
+// one row per (user, role, scope) — read this at login / session time
+const grants = [{ role: "member", scopeId: "proj_88" }];
+```
+
+### 3. Check on the server before saving anything
+
+```ts title="routes/tasks.ts"
+app.put("/projects/:projectId/tasks/:id", async (req, res) => {
+	const task = await db.tasks.findById(req.params.id);
+
+	const checker = ac.for(req.user, req.user.grants, { project: req.params.projectId });
+
+	if (checker.cannot("update", "Task", task)) {
+		return res.status(403).json({ error: "Forbidden" });
+	}
+
+	await db.tasks.update(req.params.id, req.body);
+	res.json({ ok: true });
+});
+```
+
+Notice `scopeContext` only has `project` set, not `organization` — this app only has `member` and
+`project_admin` roles at the `project` level, so there's nothing that would ever need to compare
+against an `organization` id here. (`org_owner` is root-scoped, so it's universal regardless.)
+
+### 4. Send a safe summary to the client, for the task list UI
+
+```ts title="routes/tasks.ts (GET)"
+import { serialize } from "@phuzle/permit/server";
+
+app.get("/projects/:projectId/tasks", async (req, res) => {
+	const tasks = await db.tasks.findByProject(req.params.projectId);
+
+	const matrix = serialize(ac, {
+		user: req.user,
+		grants: req.user.grants,
+		scopeContext: { project: req.params.projectId },
+		// pass known instances so per-task "can I edit THIS one" is accurate,
+		// not just omitted because it's conditional
+		instances: tasks.map((t) => ({
+			resourceType: "Task",
+			id: t.id,
+			attrs: t,
+			actions: ["update", "delete"],
+		})),
+	});
+
+	res.json({ tasks, permissions: matrix });
+});
+```
+
+```tsx title="TaskList.tsx"
+import { AccessProvider, usePermissions } from "@phuzle/permit/react";
+import { hydrate } from "@phuzle/permit/client";
+
+function TaskRow({ task }) {
+	const { can } = usePermissions();
+	const canEdit = can("update", "Task", { instanceId: task.id });
+	return (
+		<li>
+			{task.title} {canEdit && <EditButton taskId={task.id} />}
+		</li>
+	);
+}
+```
+
+Because `instances` was passed to `serialize()`, `can("update", "Task", { instanceId: task.id })`
+gives a real per-task answer instead of the generic "was this conditional rule omitted" fallback —
+see [Client/server sync](/permit/guides/client-server-sync) for why that distinction exists.
+
+## Scenario 2: a two-sided marketplace
+
+The shape: a `platform` runs many independent `store`s. Store owners manage their own store;
+store staff can fulfill orders but shouldn't be able to issue refunds.
+
+### 1. Model the blueprint
+
+```ts title="permissions.ts"
+export const config = {
+	scopes: ["platform", "store"],
+	roles: {
+		platform_admin: "platform",
+		store_owner: "store",
+		store_staff: "store",
+	},
+	resources: ["Store", "Product", "Order"],
+	actions: ["create", "read", "update", "delete", "manage", "refund"],
+} as const;
+
+export const ac = definePermissions(config)
+	.role("platform_admin")
+	.can("*", "*")
+	.role("store_owner")
+	.can("manage", "Store")
+	.can("create", "Product")
+	.can("update", "Product")
+	.can("read", "Order")
+	.can("refund", "Order")
+	.role("store_staff")
+	.can("read", "Product")
+	.can("read", "Order")
+	.can("update", "Order") // e.g. marking an order as fulfilled
+	// staff explicitly CANNOT refund — no .can("refund", ...) for this role at all
+	.build();
+```
+
+Notice `store_staff` simply never gets a `.can("refund", "Order")` rule — with plain `.can()`
+rules, anything you don't explicitly grant is denied by default. You'd only need
+[`.cannot()`](/permit/guides/deny-rules) if you needed to carve an exception out of a broader
+grant a role *does* have (e.g. "staff can manage orders except refunds," written as one broad
+`.can("manage", "Order")` plus a narrower `.cannot("refund", "Order")`).
+
+### 2. Check it
+
+```ts
+const staffChecker = ac.for(
+	{ id: "u1" },
+	[{ role: "store_staff", scopeId: "store_9" }],
+	{ store: "store_9" },
+);
+
+staffChecker.can("update", "Order"); // true
+staffChecker.can("refund", "Order"); // false
+```
+
+### 3. A platform admin sees everything, everywhere, automatically
+
+```ts
+const adminChecker = ac.for({ id: "root" }, [{ role: "platform_admin" }], { store: "store_anything" });
+adminChecker.can("refund", "Order"); // true — root-scoped roles are universal, see Scope & scopeContext
+```
+
+No `store_9`-specific grant needed for the admin — that's the cascading behavior explained in
+[Scope & scopeContext](/permit/guides/scope-context).

@@ -1,0 +1,149 @@
+---
+title: Client/server sync
+description: How to safely show/hide UI based on permissions, without shipping your rules to the browser.
+---
+
+## Why this exists
+
+Say you want an "Edit" button to only show up for people who can actually edit a post. You have
+two bad options if you don't use anything special:
+
+1. **Ship your whole rules engine to the browser** and re-run the same checks there. Now your
+   actual authorization logic — including things like "who is a moderator" — lives in code anyone
+   can open in dev tools and read. Not great.
+2. **Ask the server every time** you need to decide whether to show a button. Slow, and annoying
+   to wire up for every single UI element.
+
+Permit's answer: the server computes one small, safe summary of *"here's roughly what this user
+can do"* once, sends it down as plain JSON, and the browser can check that summary instantly —
+with zero rules logic shipped to the client. This page explains exactly what's in that summary and
+why.
+
+## The three functions
+
+<TypeTable
+	type={{
+		"serialize(ac, { user, grants, scopeContext })": {
+			type: "runs on the server",
+			description: "Takes the real engine + one user's situation, returns a small JSON object.",
+		},
+		"hydrate(matrix)": {
+			type: "runs on the client",
+			description: 'Turns that JSON into a can()/cannot() object — no rules logic included.',
+		},
+		"createLiveClient(matrix)": {
+			type: "runs on the client",
+			description: "Same as hydrate(), plus .update()/.subscribe() for live push updates.",
+		},
+	}}
+/>
+
+`serialize` comes from `@phuzle/permit/server`. `hydrate`/`createLiveClient` come from
+`@phuzle/permit/client` (also re-exported by the framework adapters, e.g. `@phuzle/permit/react`).
+Only that tiny client package — flat object lookups — ever reaches the browser. Your actual rules
+(`src/core` internally) never do.
+
+## What actually ends up in that JSON
+
+Only rules that don't need to look at real data get included. Take this blueprint:
+
+```ts
+const ac = definePermissions(config)
+	.role("editor")
+	.can("read", "Post")
+	.can(
+		"update",
+		"Post",
+		(ctx) => !(ctx.resource as { archived?: boolean })?.archived, // needs a real post to check
+	)
+	.build();
+```
+
+```ts
+const matrix = serialize(ac, {
+	user: { id: "u1" },
+	grants: [{ role: "editor", scopeId: "blog_42" }],
+	scopeContext: { blog: "blog_42" },
+});
+```
+
+```json
+{
+	"v": 1,
+	"scopeContext": { "blog": "blog_42" },
+	"permissions": {
+		"Post:read": true
+	},
+	"generatedAt": 1755100000000
+}
+```
+
+Notice `"Post:update"` is **missing** — not `false`, just absent. It's gated by a function that
+needs a real post's data (`archived`), and no specific post was given to `serialize()`. There was
+no safe way to answer "can they update *some* post" in general, so it's left out.
+
+**One rule to remember: presence + `true` means "safe to show this in the UI." Absence means
+"don't assume — ask the server for the real answer when it matters."**
+
+```ts
+const client = hydrate(matrix);
+client.can("read", "Post"); // true — was in the matrix
+client.can("update", "Post"); // false — was left out, even though editors CAN update some posts
+```
+
+If you already know the specific instances at serialize time (e.g. you're rendering a list of 20
+posts on the current page), you can pass them to `serialize()` and it will evaluate the rule
+against each one's real data instead of leaving the pair out — see the `instances` option on
+`serialize()` in the [API reference](/permit/reference/api).
+
+## Why the client is a hint, not a lock
+
+Because conditional rules get left out rather than guessed at, the client's summary can only
+**under**-report what a user can do — never over-report. That's the safe direction for a UI hint
+(worst case: a working button stays hidden), but it means:
+
+<Callout type="error" title="Never trust the client matrix for an actual write">
+	Always let the server make the real decision before saving anything. This is exactly what the
+	Express/Hono middleware does — it calls the real engine live, with real data off the request,
+	and never looks at anything the client sent back.
+</Callout>
+
+```ts
+// The real, authoritative check for one specific post — always run this before saving.
+const canUpdate = ac.check({
+	user,
+	grants,
+	scopeContext,
+	action: "update",
+	resource: "Post",
+	resourceAttrs: post, // the actual database row
+});
+```
+
+## Pushing live updates to an already-open page
+
+`hydrate()` gives you a one-time snapshot. If someone's role changes while they're already using
+your app (e.g. over a WebSocket), use `createLiveClient()` instead — same `can()`/`cannot()`, plus
+a way to push a fresh matrix in:
+
+```ts
+const live = createLiveClient(initialMatrix);
+live.subscribe(() => console.log("permissions changed"));
+
+socket.on("permissions", (matrix) => live.update(matrix)); // your transport of choice
+
+live.can("read", "Post"); // always reflects the latest update()
+```
+
+Pass a `LiveClient` straight into a framework adapter's provider (see
+[Framework adapters](/permit/guides/framework-adapters)) and components using `usePermissions()`
+re-render automatically on every update — no manual wiring.
+
+## Try it yourself
+
+```bash
+bun run examples/client-server-sync/index.ts
+```
+
+See it at [`examples/client-server-sync/index.ts`](https://github.com/phuzle/permit/blob/main/examples/client-server-sync/index.ts)
+on GitHub.

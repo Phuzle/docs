@@ -1,0 +1,201 @@
+---
+title: API reference
+description: The full public API surface of @phuzle/permit, by subpath.
+---
+
+This page is a lookup table, not a tutorial — see [Getting Started](/permit/getting-started) if
+you're new here.
+
+## `@phuzle/permit`
+
+### `definePermissions(config)`
+
+Takes your blueprint and returns a fluent builder. `config` should be declared with `as const` so
+every role/resource/action name is inferred as a literal type.
+
+<TypeTable
+	type={{
+		scopes: {
+			type: "readonly [string, ...string[]]",
+			description: "Ordered broadest -> narrowest, e.g. ['platform', 'blog'].",
+			required: true,
+		},
+		roles: {
+			type: "Record<string, Scopes[number]>",
+			description: "Each role name mapped to the single scope level it lives at.",
+			required: true,
+		},
+		resources: {
+			type: "readonly string[]",
+			description: "The kinds of things rules protect, e.g. ['Blog', 'Post'].",
+			required: true,
+		},
+		actions: {
+			type: "readonly string[]",
+			description: "The verbs a rule can grant, e.g. ['create', 'read', 'update'].",
+			required: true,
+		},
+	}}
+/>
+
+### The role builder
+
+Chained off `definePermissions(config)`:
+
+<TypeTable
+	type={{
+		".role(name)": {
+			type: "(name: keyof config.roles) => RoleBuilder",
+			description: "Switches which role subsequent .can()/.cannot() calls apply to.",
+		},
+		".can(action, resource, when?)": {
+			type: "(action, resource, when?: WhenFn) => RoleBuilder",
+			description:
+				'Grants an action on a resource for the current role. "*" matches any action/resource. An optional third argument makes it conditional (ABAC) — see the type signature below.',
+		},
+		".cannot(action, resource, when?)": {
+			type: "(action, resource, when?: WhenFn) => RoleBuilder",
+			description:
+				"Explicitly denies — always overrides a matching .can(), regardless of specificity. See the Deny rules guide.",
+		},
+		".build(options?)": {
+			type: "(options?: BuildOptions) => CompiledEngine",
+			description: "Compiles the blueprint into an engine. options.audit registers a hook fired on every engine.check() denial.",
+		},
+	}}
+/>
+
+`WhenFn` is `(ctx: WhenCtx) => boolean`, where `ctx` is:
+
+```ts
+interface WhenCtx {
+	user: { id: string; [k: string]: unknown };
+	scopeContext: Record<string, string | undefined>;
+	resource?: unknown; // whatever you passed as resourceAttrs — narrow with `as` at the call site
+	action: string;
+	resourceType: string;
+}
+```
+
+### The compiled engine (`ac`)
+
+<TypeTable
+	type={{
+		"ac.for(user, grants, scopeContext)": {
+			type: "(user, grants, scopeContext) => BoundChecker",
+			description:
+				"Resolves which grants apply once, returns a reusable checker — cheapest way to run many checks for the same user/location.",
+		},
+		"ac.check(input)": {
+			type: "(input: CheckInput) => boolean",
+			description:
+				"One-shot check: { user, grants, scopeContext, action, resource, resourceAttrs? }. The only call that fires the audit hook on denial.",
+		},
+		"ac.config": {
+			type: "readonly PermitConfig",
+			description: "The original blueprint, for introspection (e.g. building a permissions matrix UI).",
+		},
+	}}
+/>
+
+### The bound checker (from `ac.for(...)`)
+
+<TypeTable
+	type={{
+		"checker.can(action, resource, resourceAttrs?)": {
+			type: "(action, resource, resourceAttrs?: unknown) => boolean",
+			description: "resourceAttrs is only needed for conditional (.when()-gated) rules.",
+		},
+		"checker.cannot(action, resource, resourceAttrs?)": {
+			type: "(...) => boolean",
+			description: "Exactly !checker.can(...).",
+		},
+	}}
+/>
+
+### Key types
+
+<TypeTable
+	type={{
+		ScopeContext: {
+			type: "{ [scope in Scopes[number]]?: string }",
+			description: "The ancestor chain for the resource being checked. See the Scope & scopeContext guide.",
+		},
+		Grant: {
+			type: "{ role: RoleName; scopeId?: string }",
+			description: "scopeId is required unless the role lives at the root (broadest) scope, where it's implicitly universal.",
+		},
+		AuditEvent: {
+			type: "{ type: 'denied', user, action, resource, scopeContext, resourceAttrs?, timestamp }",
+			description: "What's passed to the audit handler on every engine.check() denial.",
+		},
+	}}
+/>
+
+## `@phuzle/permit/server`
+
+<TypeTable
+	type={{
+		"serialize(ac, input)": {
+			type: "(ac: CompiledEngine, input: SerializeInput) => SerializedMatrix",
+			description:
+				"Flattens one user's static (unconditional) permissions into a small JSON object. Pass input.instances for known resource instances so conditional rules get evaluated instead of omitted. See Client/server sync.",
+		},
+		"resolveGrants(compact)": {
+			type: "(compact: CompactGrant[]) => Grant[]",
+			description:
+				'Expands compact ["role"] / ["role", "scopeId"] tuples into the {role, scopeId?} shape — handy for keeping JWT claims small.',
+		},
+		ForbiddenError: {
+			type: "class extends Error",
+			description: "status (403), action, resource fields. Exported for apps that prefer throwing to a centralized error handler over the middleware's default JSON response.",
+		},
+	}}
+/>
+
+## `@phuzle/permit/client`
+
+<TypeTable
+	type={{
+		"hydrate(matrix)": {
+			type: "(matrix: SerializedMatrix) => HydratedClient",
+			description: "Turns a serialized matrix into a can()/cannot()/scopeContext object. Zero dependency on src/core.",
+		},
+		"createLiveClient(matrix)": {
+			type: "(matrix: SerializedMatrix) => LiveClient",
+			description: "Same as hydrate(), plus .update(matrix), .subscribe(listener), and .getVersion().",
+		},
+	}}
+/>
+
+## `@phuzle/permit/express` and `@phuzle/permit/hono`
+
+Both export the same shape; Hono's uses `Context` in place of Express's `(req, res, next)`.
+
+<TypeTable
+	type={{
+		"createPermit(ac)": {
+			type: "(ac: CompiledEngine) => { requirePermission, getPermissions }",
+			description: "Binds a compiled engine to the framework.",
+		},
+		"requirePermission(action, resource, options)": {
+			type: "(action, resource, options: RequirePermissionOptions) => Handler",
+			description:
+				"options.scopeContext is required — a function deriving ScopeContext from the request. user/grants/resourceAttrs/onDenied are optional overrides (defaults: req.user, req.user.grants, none, 403 JSON).",
+		},
+		"getPermissions(req)": {
+			type: "(req) => BoundChecker",
+			description: "Retrieves the checker requirePermission() already resolved for this request — for extra ad hoc checks inside the handler.",
+		},
+	}}
+/>
+
+See [Framework adapters](/permit/guides/framework-adapters) for full worked examples of every
+subpath above, including React/Vue/Svelte.
+
+## `@phuzle/permit/react`, `/vue`, `/svelte`
+
+Each re-exports `hydrate`/`createLiveClient` from `/client` plus framework-native
+`AccessProvider`, `usePermissions`, and `Can`. See
+[Framework adapters](/permit/guides/framework-adapters) for the exact shape of each (Vue's
+`usePermissions()` returns plain reactive getters; Svelte's returns a store).

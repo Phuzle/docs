@@ -1,0 +1,185 @@
+---
+title: Scope & scopeContext
+description: What scopeContext actually is, in plain language, with a step-by-step example.
+---
+
+If you haven't read [Getting Started](/permit/getting-started) yet, do that first — step 3 there
+introduces `scopeContext` for the first time. This page slows down and goes further.
+
+## Start with an analogy
+
+Think of a security guard at a big office building with several floors. Each floor is a different
+company. A guard's badge says which floor they're allowed on. To let someone through a door, the
+guard needs to know two things: **which floor does this badge cover**, and **which floor is this
+door actually on**. If those two match, the door opens.
+
+`scopeContext` is how you tell Permit "which floor this door is on" — every single time you ask
+"can this person go through?" It's not about the person. It's about **where the thing they're
+touching is located.**
+
+## The two questions Permit is really answering
+
+Every check answers one question — "can this user do this to this resource?" — but it's really
+merging the answers to two separate, smaller questions:
+
+1. **Where does this user have power?** → answered by `grants`. Example: "I hold the `editor`
+   role, for `blog_42`."
+2. **Where does the resource actually live?** → answered by `scopeContext`. Example: "the post
+   I'm checking right now belongs to `blog_42`."
+
+```ts
+const checker = ac.for(
+	{ id: "user_3" }, // who
+	[{ role: "editor", scopeId: "blog_42" }], // where they have power
+	{ blog: "blog_42" }, // where the thing they're checking lives
+);
+checker.can("update", "Post");
+```
+
+`grants` describes the user. `scopeContext` describes the *target*. Neither one means anything on
+its own — Permit's whole job is comparing the two.
+
+## Where each value actually comes from in your app
+
+This is usually where the confusion creeps in, so let's be very explicit:
+
+- **`grants`** come from the user's *session* — a JWT claim, a `user_roles` table, wherever your
+  auth system already keeps this. They rarely change (only when someone's role changes), and stay
+  the same across many different checks in one request.
+- **`scopeContext`** comes from the *resource being touched right now* — usually straight off the
+  database row or the URL params. It changes on almost every check, because every check is
+  potentially about a different resource.
+
+```ts
+// Express route: PUT /blogs/:blogId/posts/:postId
+app.put("/blogs/:blogId/posts/:postId", async (req, res) => {
+	const post = await db.posts.findById(req.params.postId);
+
+	const checker = ac.for(
+		req.user, // session — who's asking
+		req.user.grants, // session — where they have power
+		{ blog: req.params.blogId }, // THIS request's resource — where the target lives
+	);
+
+	if (checker.cannot("update", "Post", post)) return res.status(403).end();
+	// ...
+});
+```
+
+Notice `scopeContext` isn't looked up from the user at all — it's built fresh, per request, from
+whatever the request is actually about.
+
+## A step-by-step walkthrough
+
+Say your blueprint has two levels: `platform` (the whole company) and `blog` (one specific blog).
+An `editor` grant on `blog_42` should apply to every post *in* `blog_42`, without you ever telling
+Permit which posts belong to which blog.
+
+```ts
+const config = {
+	scopes: ["platform", "blog"],
+	roles: {
+		platform_admin: "platform",
+		editor: "blog",
+	},
+	resources: ["Blog", "Post"],
+	actions: ["read", "update"],
+} as const;
+```
+
+**Step 1 — a grant only ever names its own scope's id.** An `editor` grant names a `blog`, nothing
+narrower:
+
+```ts
+const grants = [{ role: "editor", scopeId: "blog_42" }];
+```
+
+**Step 2 — a check names the full chain down to the specific resource.** Checking a post inside
+`blog_42` needs `scopeContext.blog` set to `"blog_42"`:
+
+```ts
+ac.for(user, grants, { blog: "blog_42" }).can("update", "Post"); // true
+```
+
+**Step 3 — the match is exact, at the role's own level.** A different blog's id doesn't match:
+
+```ts
+ac.for(user, grants, { blog: "blog_99" }).can("update", "Post"); // false — wrong blog
+```
+
+That's the entire mechanism — one comparison, `scopeContext[<role's scope level>] ===
+grant.scopeId`. There's one exception, covered next.
+
+## The exception: root-level roles are universal
+
+A role at the **broadest** scope in your list (`platform`, here) always applies, no matter what's
+in `scopeContext`:
+
+```ts
+ac.for(user, [{ role: "platform_admin" }], { blog: "literally anything" }).can("update", "Post"); // true
+```
+
+This is what makes a company-wide admin role work everywhere without needing a separate grant per
+blog. It's also why a root-level grant doesn't even need a `scopeId` — there's nothing to match
+against, it's universal by definition.
+
+## Why this is called "cascading"
+
+An `editor` grant on `blog_42` was only ever compared against `scopeContext.blog`. It never looked
+at anything narrower (like a specific post's id). So it automatically applies to **every** post
+under `blog_42` — Permit never needed to know which posts belong to which blog; your database
+already knows that, and you just tell Permit the answer via `scopeContext` each time you check.
+That's the entire "cascading" behavior — there's no tree walking or lookup happening anywhere.
+
+<Callout type="error" title="The most common bug: a missing key fails closed, silently">
+If you forget to include one of a resource's ancestor ids in `scopeContext`, any grant at that
+missing level is treated as **not applying** — the check quietly returns `false` instead of
+throwing an error. This is a deliberate safe default (fail closed, not fail open), but it's easy
+to trip over:
+
+```ts
+// BUG: forgot `blog` entirely
+const checker = ac.for(user, [{ role: "editor", scopeId: "blog_42" }], {});
+checker.can("update", "Post"); // false — NOT because the grant is wrong,
+// but because scopeContext.blog is undefined
+```
+
+If a check that "should" pass mysteriously returns `false`, this is the first thing to check: did
+you pass every ancestor scope the resource actually belongs to, not just its immediate parent?
+</Callout>
+
+## FAQ
+
+<Accordions>
+	<Accordion title="Is scopeContext per-user or per-request?">
+		Per-check, not session state. Build it fresh from whatever resource the current check is
+		about. Two checks in the same request (e.g. checking two different blogs) need two
+		different `scopeContext` objects.
+	</Accordion>
+	<Accordion title="Does scopeId need to match a specific key in scopeContext, or can it be anywhere?">
+		It's matched against exactly one key: `scopeContext[<the role's own scope level>]`. An
+		`editor` grant only ever looks at `scopeContext.blog` — never any other key in the object,
+		no matter what else is in there.
+	</Accordion>
+	<Accordion title="What if a resource doesn't belong to any blog at all?">
+		Only a root-level role (`platform_admin` here) can act on it, since root grants are
+		universal. A `blog`-scoped grant has nothing to match against and won't apply.
+	</Accordion>
+	<Accordion title="Can two grants at different scope levels both apply to the same check?">
+		Yes — completely normal. A user can hold an `editor` grant on `blog_42` *and* a
+		`platform_admin` grant at the same time; both are checked as candidates, and the check
+		passes if *either* allows it (grants are additive, except explicit `.cannot()` denials,
+		which always win — see [Deny rules](/permit/guides/deny-rules)).
+	</Accordion>
+</Accordions>
+
+## Try it yourself
+
+The permit repository ships a runnable script that prints every example above with real output:
+
+```bash
+bun run examples/scope-cascading/index.ts
+```
+
+See it at [`examples/scope-cascading/index.ts`](https://github.com/phuzle/permit/blob/main/examples/scope-cascading/index.ts)
+on GitHub.

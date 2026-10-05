@@ -1,0 +1,185 @@
+---
+title: Framework adapters
+description: React, Vue, and Svelte components/hooks, plus Express/Hono server middleware.
+---
+
+This guide assumes you've already read [Client/server sync](/permit/guides/client-server-sync) —
+every adapter here works with an already-`hydrate()`d (or `createLiveClient()`d) client, never
+raw JSON, and never touches your actual rules.
+
+## UI components (React, Vue, Svelte)
+
+All three follow the same shape:
+
+- An **`<AccessProvider client={...}>`** wraps part of your tree and provides the client via that
+  framework's own context/injection mechanism.
+- A **`usePermissions()`** hook/composable/store gives you `can()`/`cannot()`/`scopeContext`
+  anywhere inside the provider.
+- A **`<Can action resource>`** component conditionally renders children, with an optional
+  `fallback`.
+
+All three also automatically re-render when a `LiveClient` you passed in calls `.update()` — no
+manual re-render wiring needed in any of them.
+
+<Tabs items={["React", "Vue", "Svelte"]}>
+<Tab value="React">
+
+```tsx
+import { AccessProvider, usePermissions, Can, hydrate } from "@phuzle/permit/react";
+
+function App({ matrix }) {
+	return (
+		<AccessProvider client={hydrate(matrix)}>
+			<Can action="update" resource="Post" fallback={<ReadOnlyBadge />}>
+				<EditButton />
+			</Can>
+		</AccessProvider>
+	);
+}
+
+function Toolbar() {
+	const { can } = usePermissions();
+	return can("manage", "Blog") ? <BlogSettingsLink /> : null;
+}
+```
+
+Built on `useSyncExternalStore`, so it plays correctly with concurrent rendering.
+
+</Tab>
+<Tab value="Vue">
+
+```ts
+import { AccessProvider, usePermissions, Can, hydrate } from "@phuzle/permit/vue";
+import { h } from "vue";
+
+const App = {
+	setup() {
+		return () =>
+			h(AccessProvider, { client: hydrate(matrix) }, () =>
+				h(Can, { action: "update", resource: "Post" }, {
+					default: () => h(EditButton),
+					fallback: () => h(ReadOnlyBadge),
+				}),
+			);
+	},
+};
+
+// in any descendant component:
+const { can } = usePermissions();
+can("manage", "Blog"); // reactive — re-evaluates when the provided client updates
+```
+
+`<Can>` takes `action`/`resource`/`instanceId` props and `default`/`fallback` slots (Vue's
+equivalent of children/fallback). The client is provided via a `Ref`, so swapping which client
+instance `<AccessProvider client>` holds (e.g. after re-hydrating) is reactive too, not just
+`update()` calls on a `LiveClient`.
+
+</Tab>
+<Tab value="Svelte">
+
+```svelte
+<script lang="ts">
+	import { AccessProvider, Can, hydrate } from "@phuzle/permit/svelte";
+	let { matrix } = $props();
+</script>
+
+<AccessProvider client={hydrate(matrix)}>
+	<Can action="update" resource="Post">
+		{#snippet children()}<EditButton />{/snippet}
+		{#snippet fallback()}<ReadOnlyBadge />{/snippet}
+	</Can>
+</AccessProvider>
+```
+
+```svelte
+<script lang="ts">
+	import { usePermissions } from "@phuzle/permit/svelte";
+	const permissions = usePermissions(); // a Svelte store
+</script>
+
+{#if $permissions.can("manage", "Blog")}
+	<BlogSettingsLink />
+{/if}
+```
+
+`usePermissions()` returns a Svelte store (`$permissions.can(...)`), not a plain object like
+React/Vue — that's the idiomatic fit for Svelte's own reactivity model.
+
+</Tab>
+</Tabs>
+
+## Server middleware (Express, Hono)
+
+Unlike the UI adapters above, server middleware never touches the client matrix at all — it
+imports your real compiled engine and calls it live, on every request, with real data pulled off
+that request. This is what actually enforces your rules; the UI adapters only ever decide what to
+render.
+
+<Tabs items={["Express", "Hono"]}>
+<Tab value="Express">
+
+```ts
+import { createPermit } from "@phuzle/permit/express";
+import { ac } from "./permissions";
+
+const { requirePermission, getPermissions } = createPermit(ac);
+
+app.put(
+	"/blogs/:blogId/posts/:id",
+	requirePermission("update", "Post", {
+		scopeContext: (req) => ({ blog: req.params.blogId }),
+	}),
+	(req, res) => {
+		const checker = getPermissions(req); // run further ad hoc checks in the handler
+		res.json({ canPublish: checker.can("publish", "Post") });
+	},
+);
+```
+
+</Tab>
+<Tab value="Hono">
+
+```ts
+import { createPermit } from "@phuzle/permit/hono";
+import { ac } from "./permissions";
+
+const { requirePermission, getPermissions } = createPermit(ac);
+
+app.put(
+	"/blogs/:blogId/posts/:id",
+	requirePermission("update", "Post", {
+		scopeContext: (c) => ({ blog: c.req.param("blogId") }),
+	}),
+	(c) => {
+		const checker = getPermissions(c);
+		return c.json({ canPublish: checker.can("publish", "Post") });
+	},
+);
+```
+
+</Tab>
+</Tabs>
+
+Both default to reading `user`/`grants` off `req.user`/`req.user.grants` (Express) or the
+`user`/`grants` context variables (Hono) — override with the `user`/`grants` options if your app
+stores them elsewhere. A denied request gets `403 { error, action, resource }` by default;
+override with `onDenied`. See [`RequirePermissionOptions`](/permit/reference/api) for every
+option.
+
+## Audit logging
+
+None of the adapters above fire audit events on their own — that happens inside the engine itself,
+whenever `engine.check()` (which `requirePermission()` calls under the hood) denies something:
+
+```ts
+export const ac = definePermissions(config)
+	.role("editor")
+	.can("manage", "Post")
+	.build({
+		audit: (event) => queue.publish("authz.denied", event), // your logging/analytics sink
+	});
+```
+
+The hook fires with `{ type: "denied", user, action, resource, scopeContext, resourceAttrs,
+timestamp }`. Ad hoc `checker.can()` reads (like the UI adapters use to decide what to render)
+never fire it — those aren't real authorization attempts, just UI hints.

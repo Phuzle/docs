@@ -1,0 +1,4 @@
+{
+  "title": "Guides",
+  "pages": ["scope-context", "deny-rules", "client-server-sync", "framework-adapters", "real-life-scenarios"]
+}

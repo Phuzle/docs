@@ -1,0 +1,97 @@
+---
+title: Permit
+description: A universal, strictly-typed RBAC + ABAC authorization engine for TypeScript.
+---
+
+## What is Permit?
+
+**Permit** (`@phuzle/permit`) is an authorization library for full-stack TypeScript apps. You
+write your roles and permissions once, in one file, and get:
+
+- **Full type inference** — every role, resource, and action name is a literal type. Typos are
+  compile errors, and every `.can()` call autocompletes against your exact config.
+- **RBAC and ABAC in one API** — plain role-based rules (`"editors can update posts"`) and
+  data-aware rules (`"writers can update posts, but only their own"`) use the same `.can()` call.
+- **Hierarchical, multi-tenant scopes** — a grant at a broad level (e.g. "admin of this whole
+  workspace") automatically cascades down to everything under it, without your rules needing to
+  know your database's containment tree.
+- **A client/server bridge** — flatten one user's permissions into a small JSON matrix the
+  browser can check instantly (to show/hide UI), while the server always makes the real decision
+  live, on every request.
+- **Framework adapters** for React, Vue, and Svelte, plus middleware for Express and Hono.
+
+<Callout type="warn" title="Permit is in active development">
+	The API is still settling and it hasn't been published to npm yet. Expect breaking changes
+	between versions until a 1.0 release. Track progress on
+	[GitHub](https://github.com/phuzle/permit).
+</Callout>
+
+## Install
+
+```package-install
+@phuzle/permit
+```
+
+`react`, `vue`, `svelte`, `express`, and `hono` are optional peer dependencies — only install the
+ones your app actually uses.
+
+## A 30-second taste
+
+```ts title="permissions.ts"
+import { definePermissions } from "@phuzle/permit";
+
+const config = {
+	scopes: ["platform", "blog"],
+	roles: {
+		platform_admin: "platform",
+		editor: "blog",
+	},
+	resources: ["Blog", "Post"],
+	actions: ["create", "read", "update", "delete", "publish"],
+} as const;
+
+export const ac = definePermissions(config)
+	.role("platform_admin")
+	.can("*", "*")
+	.role("editor")
+	.can("read", "Post")
+	.can("update", "Post")
+	.build();
+```
+
+```ts
+const checker = ac.for(
+	{ id: "user_1" },
+	[{ role: "editor", scopeId: "blog_42" }],
+	{ blog: "blog_42" },
+);
+checker.can("update", "Post"); // true
+```
+
+If that last example raised more questions than it answered (what's `scopeId`? what's the third
+argument to `.for()`?) — good, that's exactly what the next page is for.
+
+## Where to go next
+
+<Cards>
+	<Card
+		title="Getting Started"
+		href="/permit/getting-started"
+		description="Start from zero — builds up every concept one small step at a time, in plain language."
+	/>
+	<Card
+		title="Concepts"
+		href="/permit/concepts"
+		description="A short glossary/reference once you already understand the pieces."
+	/>
+	<Card
+		title="Guides"
+		href="/permit/guides/scope-context"
+		description="Deep dives on scopes, deny rules, client/server sync, framework adapters, and real-life examples."
+	/>
+	<Card
+		title="Reference"
+		href="/permit/reference/api"
+		description="The full public API surface and CLI options."
+	/>
+</Cards>

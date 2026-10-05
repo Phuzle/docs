@@ -1,0 +1,6 @@
+{
+  "title": "Permit",
+  "root": true,
+  "description": "Universal, strictly-typed RBAC + ABAC authorization for TypeScript",
+  "pages": ["index", "getting-started", "concepts", "guides", "reference"]
+}

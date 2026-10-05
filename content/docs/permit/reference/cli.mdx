@@ -1,0 +1,87 @@
+---
+title: CLI reference
+description: permit init — scaffold a starter permissions.ts.
+---
+
+The `permit` CLI writes a starter `permissions.ts` so you don't have to type the boilerplate by
+hand. It's a scaffold, not magic — you still fill in the actual `.can()` rules yourself.
+
+```package-install
+-D @phuzle/permit
+```
+
+## `permit init`
+
+```bash
+npx @phuzle/permit init [options]
+```
+
+<TypeTable
+	type={{
+		"--scopes <names>": {
+			type: "comma-separated",
+			description: "Broadest first.",
+			default: "instance,organization,project",
+		},
+		"--roles <name:scope,...>": {
+			type: "comma-separated name:scope pairs",
+			description: "Each role and the single scope level it lives at.",
+			default: "admin:instance",
+		},
+		"--resources <names>": {
+			type: "comma-separated",
+			description: "The resource names to scaffold.",
+			default: "Resource",
+		},
+		"--actions <names>": {
+			type: "comma-separated",
+			description: "The action names to scaffold.",
+			default: "create,read,update,delete,manage",
+		},
+		"--from-schema <file>": {
+			type: "path to a JSON file",
+			description: 'Seeds --resources from an existing schema instead: { "resources": [...] } or { "tables": [...] }.',
+		},
+		"--out <path>": {
+			type: "file path",
+			description: "Where to write the generated file.",
+			default: "permissions.ts",
+		},
+		"--force": {
+			type: "boolean flag",
+			description: "Overwrite --out if it already exists.",
+			default: "false",
+		},
+	}}
+/>
+
+## Example
+
+```bash
+npx @phuzle/permit init \
+  --scopes platform,blog \
+  --roles platform_admin:platform,editor:blog \
+  --resources Blog,Post \
+  --out src/permissions.ts
+```
+
+Generates a `permissions.ts` with one role per `--roles` entry, each carrying a
+`.can("*", "*")` `// TODO` stub — a starting point to edit, not a finished policy. Every role,
+resource, and action name in the output is exactly what you passed on the command line.
+
+## Seeding resources from an existing schema
+
+If you already have a Prisma schema export, an OpenAPI spec, or any JSON describing your data
+model, point `--from-schema` at a JSON file shaped like either of these and it'll populate
+`--resources` for you:
+
+```json
+{ "resources": ["Blog", "Post", "Comment"] }
+```
+
+```json
+{ "tables": ["blogs", "posts", "comments"] }
+```
+
+When `--from-schema` is passed, it fully replaces `--resources` (they're not merged) — the schema
+file is the only source of resource names in that case.

@@ -25,4 +25,13 @@ export const apps: AppEntry[] = [
     version: "0.0.1-beta.9",
     github: "https://github.com/phuzle/messages",
   },
+  {
+    slug: "permit",
+    name: "Permit",
+    tagline:
+      "A universal, strictly-typed RBAC + ABAC authorization engine for TypeScript — one blueprint, full type inference, hierarchical multi-tenant scopes, and a client/server bridge.",
+    status: "in-development",
+    version: "0.0.1",
+    github: "https://github.com/phuzle/permit",
+  },
 ];

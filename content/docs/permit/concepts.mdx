@@ -1,0 +1,67 @@
+---
+title: Concepts
+description: A short glossary and mental model — read Getting Started first if any of this is new.
+---
+
+A quick-reference map of the moving pieces, for once you already understand them from
+[Getting Started](/permit/getting-started) and just want to look something up.
+
+## The five inputs to a check
+
+| Piece | What it is | Where it comes from |
+|---|---|---|
+| **blueprint / `config`** | Your app's static shape: what scopes, roles, resources, and actions exist. Defined once, at build time. | You write it in code (`permissions.ts`). |
+| **`ac`** | The compiled engine — the result of `definePermissions(config).role(...).can(...).build()`. | Built once at startup, shared across your whole app. |
+| **`grants`** | *Who* the current user is, in terms of roles: `[{ role: "editor", scopeId: "blog_42" }]`. | The user's session (JWT claim, DB lookup at login, etc). |
+| **`scopeContext`** | *Where* the thing being checked lives, as an ancestor chain: `{ blog: "blog_42" }`. | The resource being acted on right now — a DB row, route params. |
+| **`resourceAttrs`** | The resource instance's own data, for `.when()`-gated (ABAC) rules: `{ authorId: "user_4" }`. | Same DB row as above, whatever fields your `.when()` predicates check. |
+
+The blueprint and `ac` are fixed for the lifetime of your process. `grants`, `scopeContext`, and
+`resourceAttrs` change on every check — they describe *this specific* "can user X do Y to Z"
+question, not anything global.
+
+## How a check flows
+
+```ts
+const checker = ac.for(user, grants, scopeContext);
+checker.can("update", "Post", resourceAttrs);
+```
+
+1. **`ac.for(user, grants, scopeContext)`** — for each grant, check whether its role's scope
+   level matches the id at that level in `scopeContext` (see
+   [Scope & scopeContext](/permit/guides/scope-context)). Grants that match become *candidates* —
+   the roles that plausibly apply to this resource.
+2. **`checker.can(action, resource, resourceAttrs)`** — among the candidate roles, look for a rule
+   matching `(resource, action)` (wildcards included). A plain `.can()` rule wins immediately; a
+   `.can(..., when)` rule runs its function against `resourceAttrs` and the rest of the check.
+   `.cannot()` rules, if your blueprint has any, are checked first and always win — see
+   [Deny rules](/permit/guides/deny-rules).
+
+`ac.for(...)` does the (slightly) more expensive step (resolving candidates); `checker.can(...)`
+is cheap and meant to be called many times against the same `checker` — e.g. once per action
+you're deciding whether to show a button for.
+
+If you only need one yes/no answer and don't want to hold onto a `checker`, `ac.check({ user,
+grants, scopeContext, action, resource, resourceAttrs })` does both steps in one call — it's also
+the one that fires the audit hook on denial.
+
+## Static vs. conditional rules
+
+<TypeTable
+	type={{
+		"Static (RBAC)": {
+			type: '.can("read", "Post")',
+			description:
+				"No function argument — always true for anyone holding that role, wherever the grant applies.",
+		},
+		"Conditional (ABAC)": {
+			type: '.can("update", "Post", (ctx) => ctx.resource.authorId === ctx.user.id)',
+			description:
+				"Needs a specific resource instance's data to evaluate. Same .can() call, third argument is a function.",
+		},
+	}}
+/>
+
+This distinction matters for the client/server bridge: only static rules can be safely flattened
+into the client-side permission matrix ahead of time, since conditional rules need a real resource
+instance to run. See [Client/server sync](/permit/guides/client-server-sync).

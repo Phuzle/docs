@@ -316,6 +316,24 @@ Recent messages and how they were delivered (metadata only). Auth: **session or 
 
 Parameters: `id` (path, required), `cursor` (query), `limit` (query)
 
+### `GET /v1/topics/\{id\}/queue`
+
+Delivery queue depth for this topic. Auth: **session or API key**. Success: `200`.
+
+Parameters: `id` (path, required)
+
+### `POST /v1/topics/\{id\}/deliveries/\{messageId\}/retry`
+
+Retry the failed deliveries of one message (admin). Auth: **session or API key**. Success: `200`.
+
+Parameters: `id` (path, required), `messageId` (path, required)
+
+### `POST /v1/topics/\{id\}/retry-failed`
+
+Retry every dead-lettered delivery in this topic (admin). Auth: **session or API key**. Success: `200`.
+
+Parameters: `id` (path, required)
+
 ## Devices
 
 ### `GET /v1/topics/\{id\}/devices`

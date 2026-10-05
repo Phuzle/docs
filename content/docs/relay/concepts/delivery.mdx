@@ -1,0 +1,32 @@
+---
+title: Delivery and retries
+description: How a message gets from your code to the phone, what happens when something fails, and how to retry.
+---
+
+When you send a message, Relay accepts it and queues one delivery per paired phone. You get a `202` as soon as it is safely stored — delivery then happens in the background.
+
+## What happens
+
+1. Relay records the message (metadata only) and queues an encrypted delivery for each active device.
+2. A worker hands each one to Google's push service (FCM). More urgent messages are served first (`urgent`, `high`, `default`, `low`, `min`).
+3. The phone decrypts it and reports back, so you see **Sent** and then **Delivered** in the Activity tab.
+
+## Retries
+
+Temporary problems (FCM unavailable, rate limited) are retried automatically, up to 6 attempts, waiting 5 seconds, 20 seconds, 1 minute, 5 minutes and 15 minutes between them (with a little randomness, and longer if Google asks us to wait). If Google is having a wider outage, Relay pauses sending for a short while instead of burning every message's attempts.
+
+Permanent problems are not retried: a device that uninstalled the app is marked inactive, and a message whose time-to-live ran out is dropped.
+
+## Failed deliveries and Retry
+
+If every retry fails, the delivery moves to a **dead-letter queue**. Its encrypted payload is kept for **24 hours**; during that time an admin can press **Retry** on the message (or **Retry failed** for the whole topic) in the Activity tab, which gives it a fresh time-to-live. After 24 hours the payload is deleted and only the metadata remains.
+
+Relay can never read the payload it keeps: it is the same end-to-end encrypted data it was handed.
+
+## Idempotency
+
+Send an `Idempotency-Key` header (the SDK's `idempotencyKey`) so a retried request from your side never produces a duplicate notification. GitHub webhook deliveries are de-duplicated automatically.
+
+## Fair use
+
+To keep Relay fast for everyone, a single organization can only have a limited number of deliveries in flight at once; the rest simply wait their turn.

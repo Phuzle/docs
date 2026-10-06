@@ -41,8 +41,17 @@ relay send --topic acme-alerts --title "Disk 91%" --priority high \
   --action "Reboot!=POST https://ops.example.com/reboot/db-1"
 ```
 
-A `!` after the label marks the button destructive, so the phone asks before it fires. See
-[Actions](/relay/guides/actions).
+A `!` after the label marks the button destructive, so the phone asks before it fires.
+
+To add a button that just opens a page in the browser, use `--link`:
+
+```bash
+relay send --topic acme-alerts --title "Deploy finished" \
+  --link "Dashboard=https://app.example.com/deploys/482" \
+  --action "Roll back!=POST https://ops.example.com/rollback/482"
+```
+
+Buttons from `--action` and `--link` share the limit of three. See [Actions](/relay/guides/actions).
 
 ## In CI and cron
 

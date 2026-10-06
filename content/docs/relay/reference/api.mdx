@@ -132,7 +132,7 @@ curl -s -X POST https://relay.phuzle.com/v1/trigger/push \
 | `url` | string | https only; opens when the notification is tapped |
 | `tags` | string[] | up to 5, 24 characters each |
 | `group` | string | notifications with the same group stack |
-| `actions` | object[] | up to 3 buttons, same shape as in the [message schema](/relay/reference/message-schema) |
+| `actions` | object[] | up to 3 buttons, each with a `label` and either a `link` (opens a page) or a `request` (sent from the phone), as in the [message schema](/relay/reference/message-schema) |
 | `ttlSeconds`, `collapseKey` | | as for `POST /v1/trigger` |
 
 It follows the same rules as the normal endpoint (the same validation as the SDK, the 2 KiB

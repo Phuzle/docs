@@ -27,8 +27,9 @@ Choose the topic, then add:
 - **Title and message**, and a **priority** (Minimal to Urgent).
 - **Link** (https), **tags** (up to 5), a **group** that stacks related notifications, how long to **keep trying**
   if a phone is offline, and a **replace key** so a newer message replaces an undelivered older one.
-- Up to three **action buttons**. Each calls your HTTPS endpoint from the phone; mark one **destructive** and the
-  phone asks for confirmation first. Headers and a body are optional.
+- Up to three **action buttons**. Each either **opens a link** in the phone's browser (a dashboard, a runbook) or
+  **sends a request** to your HTTPS endpoint from the phone; mark a request **destructive** and the phone asks for
+  confirmation first. Headers and a body are optional.
 
 A live preview shows how it will look and how much of the 2 KiB encrypted message you have used. The message is
 encrypted in your browser with the same code as the SDK, so Relay only ever sees ciphertext. Sends from the

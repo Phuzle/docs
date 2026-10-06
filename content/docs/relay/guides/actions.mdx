@@ -1,13 +1,21 @@
 ---
 title: Actions
-description: Notification buttons that call your HTTPS endpoints.
+description: Notification buttons that open a link or call your HTTPS endpoint.
 ---
+
+A button does one of two things:
+
+- **Open a link** (`link`): opens an `https://` page in the phone's browser, such as a dashboard, a
+  pull request or a runbook. Nothing is sent from the phone.
+- **Send a request** (`request`): calls your HTTPS endpoint straight from the phone (acknowledge an
+  alert, restart a service).
 
 ```ts
 await relay.send({
   topic: "acme-alerts",
   title: "api-3 is unhealthy",
   actions: [
+    { label: "Open dashboard", link: "https://grafana.example.com/d/api-3" },
     { label: "Acknowledge", request: { method: "POST", url: "https://ops.example.com/ack/api-3" } },
     {
       label: "Restart api-3",
@@ -19,12 +27,13 @@ await relay.send({
 });
 ```
 
-Up to **3** actions. Action contents are inside the encrypted payload, so Relay does not see your
+Up to **3** buttons, in any mix. A button is either a `link` or a `request`, never both. Action contents are inside the encrypted payload, so Relay does not see your
 URLs or headers on direct sends.
 
 ## Safety rules enforced by the app
 
-- **HTTPS only.** `http://` actions are refused.
+- **HTTPS only.** `http://` links and requests are refused. A link opens in the browser; the app never launches other apps' schemes.
+- A **link** needs no confirmation (nothing is sent), shows where it goes (`Opens grafana.example.com/d/api-3`) and leaves no result on the message.
 - Redirects are followed only to the **same host and port**; headers are never sent elsewhere.
 - Actions run **only when you tap them**. Destructive actions show a confirmation sheet with the
   exact destination.

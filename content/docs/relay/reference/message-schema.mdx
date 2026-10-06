@@ -15,7 +15,7 @@ description: The v1 plaintext that is encrypted for each device.
 | `icon` | Built-in glyph key (no remote images) |
 | `url` | HTTPS link opened on tap |
 | `group` | Stacking key |
-| `actions` | Up to 3: `label`, `request { method, url, headers?, body? }`, `style`, `confirm`, `retry` |
+| `actions` | Up to 3 buttons. Each has a `label` and **either** `link` (an https page to open in the browser) **or** `request { method, url, headers?, body? }` with `style`, `confirm`, `retry` |
 | `via` | Set to `github` for server-assisted messages |
 
 The whole serialized message must fit in **2048 bytes**. Unknown fields are ignored, so clients

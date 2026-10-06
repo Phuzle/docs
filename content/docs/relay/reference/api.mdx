@@ -104,7 +104,9 @@ result with `duplicate: true` and sends nothing.
 	only make a plain HTTP request) and you accept that trade-off.
 </Callout>
 
-It exists so a plain `curl` can send a notification. You have to opt in explicitly on every
+It exists so a plain `curl` can send a notification. It is **off by default**: an owner or admin
+must turn on **Server-side encryption** under *Settings* in the console first, otherwise you get
+`403 server_side_push_disabled`. You also opt in explicitly on every
 request with `acknowledgeServerSideEncryption: true`; without it you get `400 acknowledgement_required`
 and nothing is sent.
 

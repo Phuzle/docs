@@ -1,40 +1,6 @@
 ---
 title: Privacy Policy
-description: What data Relay handles, and what it cannot read.
+description: The privacy policy now lives on relay.phuzle.com.
 ---
 
-**Effective date:** October 5, 2026 (draft — pending legal review)
-
-This policy covers the Relay Android app and the Relay service at relay.phuzle.com, published by Phuzle Labs.
-
-## The short version
-
-Notifications you send directly through the SDK or CLI are end-to-end encrypted. Relay and Google
-cannot read their content. We store account and routing metadata, never message content.
-
-## What we collect
-
-- **Account:** the email, name and Google account identifier from Google sign-in, and your org name.
-- **Devices:** a public encryption key, a public signing key, your Firebase Cloud Messaging token, device model, OS and app version, and last-seen time.
-- **Routing metadata:** topics, subscriptions, message ids, size, priority, timestamps, and delivery status (queued, sent, delivered, failed). Delivery logs are kept for 24 hours on the free plan and longer on paid plans (up to 90 or 365 days).
-- **Secrets:** API keys, pairing tokens and sessions are stored only as one-way hashes. Webhook secrets are stored encrypted.
-
-## What we do not collect
-
-Titles, bodies, actions and URLs of directly sent notifications. Ciphertext exists on our servers only while queued and is removed when delivery completes.
-
-## Server-assisted sources
-
-For integrations such as GitHub, and when you explicitly use the last-resort `POST /v1/trigger/push` endpoint, Relay formats and encrypts the message itself, so we process that content in memory without storing or logging it. These are labelled "server-assisted" in the app.
-
-## Third parties
-
-Google Firebase Cloud Messaging carries ciphertext to your device. Google handles sign-in. We do not sell data or use it for advertising.
-
-## Your choices
-
-Remove a device or topic in the console or app, revoke keys, or delete your account by emailing **support+labs.relay@phuzle.com**; we delete your account data within 30 days of confirming the request. Private keys never leave your phone; uninstalling the app destroys them.
-
-## Contact
-
-Questions or requests: **support+labs.relay@phuzle.com** (Phuzle Labs).
+The Privacy Policy is published at **[relay.phuzle.com/privacy](https://relay.phuzle.com/privacy)**.

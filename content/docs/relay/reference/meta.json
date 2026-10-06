@@ -1,1 +1,8 @@
-{ "title": "Reference", "pages": ["api", "endpoints", "message-schema", "errors"] }
+{
+  "title": "Reference",
+  "pages": [
+    "api",
+    "message-schema",
+    "errors"
+  ]
+}

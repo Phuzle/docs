@@ -3,12 +3,26 @@ title: Pairing links
 description: How QR codes and links add a phone to a topic.
 ---
 
-A pairing link looks like `https://relay.phuzle.com/p#<token>`. With the Relay app installed it opens
-the app directly (Android App Links); otherwise the page explains how to install it. The app also
-accepts `relay://pair?t=<token>`.
+In the console, open a topic and choose **Pair a phone**. You get a QR code and a link that looks
+like `https://relay.phuzle.com/p#<token>`.
+
+![The pairing dialog in the console](/relay/console-pair.png)
+
+On the phone, tap **Pair** in the Relay app and choose **Scan QR code** or **Enter link or code**.
+With the app installed the link also opens it directly (Android App Links), and the app accepts
+`relay://pair?t=<token>`. Without the app, the page explains how to install it.
+
+<Screens>
+
+![Choosing how to pair](/relay/android-pair.png)
+
+![Confirming the topic](/relay/android-confirm.png)
+
+</Screens>
 
 - The token is in the URL **fragment**, so it is never sent to a web server or logged by one.
-- It is **single-use** and expires after 15 minutes, 1 hour, or 24 hours.
-- The app first *previews* the topic and org without using the token, then you confirm.
-- Revoke any live link from the topic's Devices tab.
+- It is **single-use** and lasts 15 minutes, 1 hour or 24 hours, your choice.
+- The app first *previews* the topic and organization without using the token, then you confirm.
+- The console dialog closes and shows "Phone paired" the moment the phone confirms.
+- Cancel an unused link from the same dialog.
 - Whoever confirms first gets the device paired; treat a link like a password until it is used.

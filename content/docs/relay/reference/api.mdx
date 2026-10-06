@@ -1,33 +1,108 @@
 ---
-title: API
-description: Overview of the Relay HTTP API.
+title: Trigger API
+description: Send a notification with curl, the SDK or the CLI. This is the whole public API.
 ---
 
-Base URL: `https://api-relay.phuzle.com/v1`. The live OpenAPI 3.1 spec is at `/openapi.json` and an
-interactive reference at `/docs`.
+Relay's public API is two endpoints. Everything else (topics, keys, devices) is managed in the
+[console](/relay/guides/console).
 
-| Area | Auth | Examples |
-|---|---|---|
-| Dashboard (orgs, topics, devices, keys, integrations) | session cookie via the console | `GET /v1/topics` |
-| Trigger | `Authorization: Bearer rly_…` | `GET /v1/trigger/recipients`, `POST /v1/trigger` |
-| Devices (the Android app) | Ed25519 request signature | `GET /v1/devices/me/subscriptions` |
-| Webhooks | HMAC signature | `POST /v1/trigger/from/github/{id}` |
+- **Base URL:** `https://api-relay.phuzle.com`
+- **Auth:** `Authorization: Bearer rly_…`, an API key from the console. A key can be limited to one
+  topic.
 
-Conventions: JSON in camelCase, errors as `{ error, code?, details? }`, lists as `{ data, total }`
-with `limit` (max 100) and `offset`. Changes inside `/v1` are additive.
+<Callout title="Use the SDK or CLI unless you have a reason not to">
+	Messages are end-to-end encrypted, so the request carries one encrypted envelope per phone, not
+	your text. The [SDK](/relay/guides/sdk) and the [CLI](/relay/guides/cli) fetch the keys
+	and do the encryption for you. Use the raw endpoints only when you are building your own client.
+</Callout>
 
-Most developers should use the [SDK](/docs/relay/guides/sdk), which handles key fetching and
-encryption. `POST /v1/trigger` expects already-encrypted envelopes:
+<Tabs items={["SDK", "CLI", "curl"]}>
+	<Tab value="SDK">
+```ts
+import { Relay } from "@phuzlelabs/relay";
+
+const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
+await relay.send({ topic: "acme-alerts", title: "Deploy failed", body: "api-3 exited 137" });
+```
+	</Tab>
+	<Tab value="CLI">
+```bash
+export RELAY_API_KEY=rly_...
+relay send --topic acme-alerts --title "Deploy failed" --body "api-3 exited 137"
+```
+	</Tab>
+	<Tab value="curl">
+```bash
+# 1. the public keys of the phones on this topic
+curl -s "https://api-relay.phuzle.com/v1/trigger/recipients?topic=acme-alerts" \
+  -H "Authorization: Bearer $RELAY_API_KEY"
+
+# 2. send one encrypted envelope per phone (see "Build the envelopes" below)
+curl -s -X POST https://api-relay.phuzle.com/v1/trigger \
+  -H "Authorization: Bearer $RELAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: deploy-142" \
+  -d @request.json
+```
+	</Tab>
+</Tabs>
+
+## `GET /v1/trigger/recipients`
+
+The phones subscribed to a topic and their public keys.
+
+| Query | |
+|---|---|
+| `topic` | Full topic name, `<org>-<topic>` (required) |
 
 ```json
 {
-  "topic": "acme-alerts",
-  "messageId": "01J…",
-  "priority": "high",
-  "ttlSeconds": 3600,
-  "envelopes": [{ "deviceId": "…", "enc": "…", "ct": "…" }]
+  "topicId": "…",
+  "keysetVersion": "…",
+  "recipients": [
+    { "deviceId": "…", "idPub": "…", "encPub": "…", "bindSig": "…", "keysetVersion": 1 }
+  ]
 }
 ```
 
-It responds `202` with `{ messageId, accepted, rejected, missing }`. Send an `Idempotency-Key`
-header to make retries safe.
+The response carries an `ETag` (the `keysetVersion`). Send it back as `If-None-Match` to get `304`
+when nothing changed. Check each recipient's `bindSig` before encrypting to it.
+
+## `POST /v1/trigger`
+
+Send an encrypted notification. Responds `202`.
+
+| Field | Type | |
+|---|---|---|
+| `topic` | string | required |
+| `messageId` | string | required, a ULID; the same id is inside each envelope |
+| `priority` | `min` `low` `default` `high` `urgent` | default `default` |
+| `ttlSeconds` | integer | how long to keep trying, default 24 h, max 28 days |
+| `collapseKey` | string | a newer message with the same key replaces an older one |
+| `envelopes` | `{ deviceId, enc, ct }[]` | required, one per phone |
+
+Add an `Idempotency-Key` header to make retries safe for 24 hours: a repeat returns the first
+result with `duplicate: true` and sends nothing.
+
+```json
+{ "messageId": "01J…", "accepted": 2, "rejected": [], "missing": [], "keysetVersion": "…", "duplicate": false }
+```
+
+- `accepted`: phones queued for delivery.
+- `rejected`: envelopes that were skipped, each with a `reason` (see [Errors](/relay/reference/errors)).
+- `missing`: active phones you sent no envelope for, usually because one paired after you fetched
+  keys. Fetch recipients again and resend once; the SDK does this for you.
+
+## Build the envelopes
+
+Each envelope is the [message](/relay/reference/message-schema) sealed to one phone with HPKE.
+The exact steps and test vectors are in [Encryption](/relay/concepts/encryption).
+
+## Limits
+
+- A plan has a daily trigger cap per organization; going over returns `429 quota_exceeded` with
+  `Retry-After`. See [Plans and limits](/relay/concepts/limits).
+- Each key also has a short burst limit; a `429` always includes `Retry-After` (seconds).
+- Request bodies are capped at 1 MB; the plaintext message at 2 KiB.
+
+Errors are described in [Errors](/relay/reference/errors).

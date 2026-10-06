@@ -40,6 +40,7 @@ export const apps: AppEntry[] = [
     tagline:
       "Push notifications for developers — end-to-end encrypted, actionable, with no app to build.",
     status: "in-development",
+    icon: "/icons/relay.png",
     version: "0.0.1",
     github: "https://github.com/phuzle/relay",
   },

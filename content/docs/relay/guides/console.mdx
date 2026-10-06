@@ -1,0 +1,34 @@
+---
+title: The console
+description: A tour of relay.phuzle.com, where you manage topics, phones, keys and your team.
+---
+
+![The Relay console overview](/relay/console-overview.png)
+
+| Page | What it is for |
+|---|---|
+| **Overview** | Messages, deliveries, failures and latency for the period you pick, plus where messages come from and your busiest topics. Updates live. |
+| **Activity** | The latest messages across every topic, with how many phones received each. Message content is never stored. |
+| **Topics** | Create topics and open one to see its phones, activity, integrations and settings. |
+| **Devices** | Every paired phone and when it was last seen. |
+| **API keys** | Create, rotate and revoke the keys your code uses to send. |
+| **Members** | Invite teammates with a link and set their role. See [Members and roles](/relay/concepts/members-and-roles). |
+| **Usage** | How much of your plan's limits you are using. See [Plans and limits](/relay/concepts/limits). |
+
+The account menu (top right) has your profile, billing, organization settings and the theme.
+Press `⌘K` to jump to any page or topic.
+
+## Live updates
+
+You don't need to refresh. When a phone pairs, a message is sent or a delivery finishes, the pages
+that show it update on their own.
+
+## Destructive actions ask first
+
+Removing a phone, revoking or rotating a key, removing a member and deleting an organization or a
+topic all open a confirmation. The heaviest ones ask you to type the name to confirm.
+
+## Roles
+
+Owners and admins manage everything. Members can see topics, activity and usage but can't change
+them.

@@ -32,14 +32,10 @@ try {
 - Encrypts locally, one envelope per paired device. Plaintext over 2 KiB throws `PayloadTooLargeError`.
 - If a device was added since the key set was fetched, the SDK refreshes recipients and retries once.
 - `idempotencyKey` makes retries safe for 24 hours.
-- Options: `baseUrl`, `fetch`, `maxRetries`. The CLI reads `RELAY_API_KEY` and `RELAY_API_URL`.
+- Options: `baseUrl`, `fetch`, `maxRetries`. `Relay.fromEnv()` reads `RELAY_API_KEY` and `RELAY_API_URL`.
+- **Custom API URL:** pass `baseUrl` to talk to a local, staging or self-hosted Relay instead of
+  `https://api-relay.phuzle.com`, for example `new Relay({ apiKey, baseUrl: "http://localhost:8400" })`.
 
 ## CLI
 
-```bash
-relay send --topic acme-alerts --title "Disk 91%" --priority high \
-  --action "Acknowledge=POST https://ops.example.com/ack/db-1" \
-  --action "Reboot!=POST https://ops.example.com/reboot/db-1"
-```
-
-A trailing `!` on the label marks the action destructive.
+The same package installs a `relay` command; see [Command line](/relay/guides/cli).

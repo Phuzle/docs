@@ -1,24 +1,41 @@
 ---
 title: Errors
-description: Error shape and machine-readable codes.
+description: What a failed send looks like and how to react.
 ---
 
 ```json
 { "error": "Daily trigger limit reached", "code": "quota_exceeded" }
 ```
 
-Validation errors add `details: [{ path, message }]`. Server errors never expose internals.
+Validation errors add `details: [{ path, message }]`. Server errors never expose internals. A
+`429` always carries a `Retry-After` header in seconds.
 
-| `code` | Meaning |
+## HTTP errors
+
+| Status | `code` | What to do |
+|---|---|---|
+| `400` | | The request body is invalid; `details` says which field. |
+| `401` | `bad_api_key` | The key is missing, wrong, revoked or expired. Create a new one in the console. |
+| `403` | `scope_denied` | The key is limited to other topics. Use a key for this topic or for all topics. |
+| `404` | | The topic doesn't exist in your organization. |
+| `413` | | The request body is over 1 MB. |
+| `429` | `quota_exceeded` | The daily cap for your plan is reached. Retry after `Retry-After`, or upgrade. |
+| `429` | | Too many requests in a short burst. Retry after `Retry-After`. |
+
+## Per-phone results
+
+A `202` can still mention phones that were skipped. Each entry in `rejected` has a `reason`:
+
+| `reason` | Meaning |
 |---|---|
-| `bad_signature` | Device signature invalid |
-| `stale_timestamp` | Request time is more than 5 minutes off |
-| `replayed_nonce` | Nonce already used |
-| `token_expired` / `token_used` | Pairing link expired or already consumed |
-| `scope_denied` | API key lacks the scope for this topic |
-| `quota_exceeded` | Daily cap reached (`Retry-After` is set) |
-| `payload_too_large` | Plaintext over the limit |
-| `keyset_stale` | Recipients changed; refetch and retry |
-| `topic_limit` | Topic or device limit reached |
-| `device_inactive` | Device was deactivated |
-| `slug_taken` | Org or topic slug already exists |
+| `unknown_device` | The envelope names a phone that isn't on this topic. Refetch recipients. |
+| `device_inactive` | The phone was removed or deactivated. |
+| `duplicate` | Two envelopes for the same phone. Only the first is used. |
+
+Phones in `missing` had no envelope, usually because they paired after you fetched keys. Refetch
+recipients and resend once.
+
+## In the SDK
+
+`RelayError` carries `status`, `code` and, for `429`, `retryAfterSeconds`. A message over 2 KiB is
+refused before anything is sent, with `PayloadTooLargeError`.

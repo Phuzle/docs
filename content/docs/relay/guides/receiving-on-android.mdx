@@ -1,18 +1,53 @@
 ---
 title: Receiving on Android
-description: Permissions, battery settings, mute and backups.
+description: The Relay app, permissions, battery settings, mute and backups.
 ---
 
-- **Notifications permission** (Android 13+) is required to show alerts.
+<Screens>
+
+![The inbox](/relay/android-inbox.png)
+
+![Topics](/relay/android-topics.png)
+
+![Settings](/relay/android-settings.png)
+
+</Screens>
+
+## The app
+
+- **Inbox.** Messages grouped by day, with a count of what needs you, what arrived today and what is
+  unread. Filter to **Needs you** (high or urgent and not yet acknowledged) or **Urgent**. Tap a
+  message to see it, press its buttons, and check when it was delivered.
+- **Topics.** Everything you're subscribed to. Tap one to mute it or unsubscribe. **Pair** adds
+  another: scan a QR code or enter a link.
+- **Settings.** Theme, notification and battery settings, and your keys.
+
+## Notifications
+
+- **Notifications permission** (Android 13+) is required to show alerts. The app asks right after
+  you pair.
 - **Battery optimisation:** if notifications arrive late, exempt Relay from battery optimisation.
   The app shows a notice when this applies. Some manufacturers need an extra "autostart" setting.
 - **Priority channels:** `min`, `low`, `default`, `high` and `urgent` map to separate notification
-  channels you can tune in system settings.
-- **Mute a topic** to stop sounds while still storing messages in the inbox.
+  channels you can tune in system settings (**Settings → Sound and importance**).
+- **Per-topic settings:** tap a topic to tune it. Choose the lowest priority that should notify (the rest
+  still land in the inbox), mute for an hour, eight hours or until morning, turn sound and vibration off,
+  hide the message on the lock screen (show all, title only or hide), and set daily quiet hours, with
+  urgent messages optionally breaking through.
 - **Unsubscribe** from a topic in the app; the console also lets you remove a device.
-- **Themes:** system, light, dark, or AMOLED black.
-- **Key storage:** by default your keys are in your Google backup, so a new phone keeps its identity.
-  In Settings → Backup & key storage you can switch to **Hardware-bound**: keys are sealed by the
-  phone's secure hardware and never leave it, so a new phone has to pair again. Switching keeps the
-  same identity; nothing needs re-pairing.
-- Reinstalling the app without a backup creates a new device identity, so you need to pair again.
+
+## About
+
+**Settings → About** links to the website, these docs, support, the privacy policy and the terms.
+
+## Themes
+
+System, light, dark or AMOLED black. Settings → Appearance.
+
+## Keys and backups
+
+By default your keys are in your Google backup, so a new phone keeps its identity. In
+**Settings → Key storage** you can switch to **Hardware-bound**: keys are sealed by the phone's
+secure hardware and never leave it, so a new phone has to pair again. Switching keeps the same
+identity; nothing needs re-pairing. Reinstalling the app without a backup creates a new device
+identity, so you need to pair again.

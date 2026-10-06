@@ -3,26 +3,31 @@ title: Quickstart
 description: From sign-in to your first encrypted notification in a few minutes.
 ---
 
-## 1. Create an org and a topic
+## 1. Create an organization and a topic
 
-Sign in to the console at `relay.phuzle.com` with Google, choose an org slug, then create a topic.
-Its full name looks like `acme-alerts` (`<org>-<topic>`).
+Sign in to the console at `relay.phuzle.com` with Google and choose an organization name. Then open
+**Topics → New topic**. Its full name looks like `acme-alerts` (`<org>-<topic>`).
 
 ## 2. Pair your phone
 
-Open the topic → **Devices** → **Pair a device**. Pick how long the link should live (15 minutes,
-1 hour or 24 hours). Scan the QR code with the Relay app, or open the link on the phone. The app
-shows which topic you are joining — confirm it.
+Open the topic and choose **Pair a phone**. Pick how long the link should work and create it. In
+the Relay app tap **Pair**, then **Scan QR code** (or **Enter link or code** if you were sent the
+link), and confirm the topic.
 
-The link is **single-use**: the first phone to confirm wins, so share it carefully. See
-[Pairing links](/docs/relay/concepts/pairing-links).
+![Pairing a phone from the console](/relay/console-pair.png)
+
+The console updates the moment the phone confirms. The link works for **one phone, once**, so share
+it carefully. See [Pairing links](/relay/concepts/pairing-links).
 
 ## 3. Create an API key
 
-Console → **API keys** → create a key scoped to `trigger:<topic-slug>`. It is shown once.
+**API keys → New key.** Limit it to the topic it will send to. The key is shown once, so copy it
+straight into your secret store.
 
 ## 4. Send a notification
 
+<Tabs items={["SDK", "CLI", "curl"]}>
+	<Tab value="SDK">
 ```ts
 import { Relay } from "@phuzlelabs/relay";
 
@@ -35,12 +40,29 @@ await relay.send({
   priority: "high",
 });
 ```
-
-Or from a shell:
-
+	</Tab>
+	<Tab value="CLI">
 ```bash
 export RELAY_API_KEY=rly_...
 relay send --topic acme-alerts --title "Deploy failed" --body "api-3 exited 137" --priority high
 ```
+	</Tab>
+	<Tab value="curl">
+Messages are encrypted before they leave your machine, so plain `curl` sends pre-encrypted
+envelopes. The [Trigger API](/relay/reference/api) shows the full request; most people use
+the SDK or CLI.
+	</Tab>
+</Tabs>
 
-You can also use **Send test** on the topic page; the browser encrypts the message itself.
+You can also use **Send a test** on the Overview or on the topic page; the browser encrypts the
+message itself.
+
+The notification appears on the phone, and the console shows it delivered.
+
+<Screens>
+
+![The Relay inbox on Android](/relay/android-inbox.png)
+
+![Topics on Android](/relay/android-topics.png)
+
+</Screens>

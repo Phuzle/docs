@@ -1,0 +1,56 @@
+---
+title: Command line
+description: Send a notification from a shell, a cron job or CI with the relay command.
+---
+
+<Callout type="warn" title="Not published yet">
+	`@phuzlelabs/relay` is not on npm yet. The command below is what ships with it.
+</Callout>
+
+The CLI encrypts on your machine, then sends. It needs an API key:
+
+```bash
+export RELAY_API_KEY=rly_...
+relay send --topic acme-alerts --title "Backup finished" --body "412 GB in 6 min"
+```
+
+On success it prints `sent <id> → 2 devices` and exits `0`. Any failure prints a one-line reason
+and exits `1`, so it works in `set -e` scripts and CI steps.
+
+## Options
+
+| Flag | |
+|---|---|
+| `--topic` | Full topic name, `<org>-<topic>` (required) |
+| `--title` | Notification title (required) |
+| `--body` | Message text |
+| `--priority` | `min`, `low`, `default`, `high`, `urgent` |
+| `--url` | An HTTPS link opened when the notification is tapped |
+| `--tag` | A short label; repeat for up to five |
+| `--group` | Stacks related notifications together |
+| `--ttl` | Seconds to keep trying to deliver |
+| `--action` | A button, `"Label=METHOD https://…"`; repeat for up to three |
+
+Environment: `RELAY_API_KEY` (required) and `RELAY_API_URL`. To use a local, staging or self-hosted Relay, set `RELAY_API_URL` or pass `--api-url https://your-relay.example` (the flag wins).
+
+## Buttons
+
+```bash
+relay send --topic acme-alerts --title "Disk 91%" --priority high \
+  --action "Acknowledge=POST https://ops.example.com/ack/db-1" \
+  --action "Reboot!=POST https://ops.example.com/reboot/db-1"
+```
+
+A `!` after the label marks the button destructive, so the phone asks before it fires. See
+[Actions](/relay/guides/actions).
+
+## In CI and cron
+
+```bash
+# GitHub Actions step
+- run: relay send --topic acme-ci --title "Deploy ${{ job.status }}" --priority high
+  env:
+    RELAY_API_KEY: ${{ secrets.RELAY_API_KEY }}
+```
+
+Keep the key in your CI's secret store. Prefer a key limited to the one topic it sends to.

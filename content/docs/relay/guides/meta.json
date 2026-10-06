@@ -5,6 +5,7 @@
     "sdk",
     "cli",
     "actions",
+    "integrations",
     "github-integration",
     "receiving-on-android"
   ]

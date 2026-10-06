@@ -1,0 +1,75 @@
+---
+title: Integrations
+description: Alerts from GitHub, GitLab, Sentry, Grafana, Uptime Kuma, Stripe, Razorpay, Cashfree or any JSON webhook, with no code.
+---
+
+Topic → **Integrations** → **Add an integration**. Pick the source, choose which events should notify,
+and you get a **URL** and a **secret** (shown once) to paste into that service.
+
+Every source goes through the same receiver, `POST https://relay.phuzle.com/v1/trigger/from/<source>/<id>`.
+Relay checks the sender's credentials **before** reading anything, answers `401` for any failure
+(a wrong id, secret or signature look identical), ignores duplicate deliveries, and replies `202` quickly.
+You can pause, rotate the secret or remove an integration at any time.
+
+<Callout type="warn" title="Server-assisted encryption">
+	These services can't encrypt for your phone, so Relay turns each event into a message and encrypts
+	it itself. The content exists only in memory (or sealed with a server key while queued) and is never
+	stored or logged, but it is **not end-to-end encrypted**. The app shows a *Server-assisted* badge.
+	See [Encryption](/relay/concepts/encryption).
+</Callout>
+
+## Sources
+
+| Source | How it proves itself | What you paste where |
+|---|---|---|
+| **GitHub** | `X-Hub-Signature-256` HMAC | Repo → Settings → Webhooks: URL, content type `application/json`, secret |
+| **GitLab** | `X-Gitlab-Token` | Project → Settings → Webhooks: URL and the secret as *Secret token* |
+| **Sentry** | `Sentry-Hook-Signature` HMAC | Internal integration → Webhook URL; then paste its **Client Secret** into Relay |
+| **Grafana / Alertmanager** | `Authorization: Bearer` (or Basic, password = secret) | Contact point / receiver `authorization` = the secret |
+| **Uptime Kuma** | `Authorization: Bearer`, `X-Relay-Secret`, or `?token=` | Notification → Webhook (JSON). Kuma 1.x can't set headers: append `?token=<secret>` to the URL |
+| **Stripe** | `Stripe-Signature` HMAC (5 minute tolerance) | Developers → Webhooks: URL; then paste the endpoint's **signing secret** (`whsec_…`) into Relay |
+| **Razorpay** | `X-Razorpay-Signature` HMAC | Account & Settings → Webhooks: URL, events, and the secret you set |
+| **Cashfree** | `x-webhook-signature` HMAC over timestamp + body | Payment Gateway → Webhooks: URL; then paste your **client secret** into Relay |
+| **Any JSON webhook** | bearer, `X-Relay-Secret`, or `X-Relay-Signature: sha256=<hmac>` | POST JSON to the URL; describe the notification with a mapping |
+
+**Whose secret?** For GitHub, GitLab, Razorpay, Grafana/Alertmanager, Uptime Kuma and the generic
+webhook, Relay generates the secret and you paste it into the service. **Sentry, Stripe and Cashfree
+make their own** signing secret and only show it once the endpoint exists. For those, Relay shows just
+the URL; add the endpoint in the service, copy the secret it gives you, and paste it back into the
+dialog (or later with the key button). Until you do, deliveries from that service are rejected.
+
+<Callout type="info" title="Check against a real account">
+	The payload handling follows each service's documented webhook format. Because we only test with
+	recorded payloads, send a real test event from the service and confirm it arrives before relying on
+	it.
+</Callout>
+
+## What gets notified
+
+Each source has sensible defaults: failures and disputes are **high** or **urgent**, successes are
+**low**, resolved alerts are **low**, and links open the right dashboard page. Tick or untick events on
+the integration to limit the noise (not available for Grafana/Alertmanager and Uptime Kuma, which send
+one kind of event).
+
+## Any JSON webhook (the mapping)
+
+For a tool we don't ship, point it at the URL and describe the notification:
+
+- **Title / message / link / group / tags** are templates. `{{field}}`, `{{a.b[0].c}}`, and a fallback
+  `{{host | unknown host}}`. A missing value becomes the fallback or empty. A link only works if it
+  ends up as `https://…`.
+- **Icon** is one of the built-in icons.
+- **Priority** starts at your default and the **first matching rule** wins:
+  `severity equals critical → urgent`. Conditions: equals, doesn't equal, contains, exists, is
+  greater/less than.
+- **Ignore when…** drops the event (answered `202 ignored`), for example `status equals ok`.
+
+The editor previews your mapping against a sample payload as you type. Templates are plain text
+substitution: nothing is evaluated, so a payload can't run code.
+
+```bash
+curl -X POST https://relay.phuzle.com/v1/trigger/from/webhook/<id> \
+  -H "Authorization: Bearer <secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Disk almost full","message":"db-1 is at 97%","severity":"critical"}'
+```

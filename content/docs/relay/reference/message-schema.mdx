@@ -13,6 +13,7 @@ description: The v1 plaintext that is encrypted for each device.
 | `priority` | `min`, `low`, `default`, `high`, `urgent` |
 | `tags` | Up to 5, each up to 24 characters |
 | `icon` | Built-in glyph key (no remote images) |
+| `icon` | A built-in icon name, drawn by the phone (nothing is downloaded): `activity` `alert` `battery` `bell` `bug` `calendar` `cart` `check` `clock` `cloud` `cpu` `credit-card` `database` `dollar` `error` `flame` `git-branch` `git-pr` `globe` `heart` `info` `key` `lock` `mail` `moon` `package` `phone` `power` `rocket` `server` `shield` `star` `success` `terminal` `thermometer` `trending-down` `trending-up` `users` `wifi` `zap`. Shown in the notification, the inbox and the message page; unknown names are ignored |
 | `url` | HTTPS link opened on tap |
 | `group` | Stacking key |
 | `actions` | Up to 3 buttons. Each has a `label` and **either** `link` (an https page to open in the browser) **or** `request { method, url, headers?, body? }` with `style`, `confirm`, `retry` |

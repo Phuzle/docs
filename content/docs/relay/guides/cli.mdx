@@ -25,11 +25,13 @@ and exits `1`, so it works in `set -e` scripts and CI steps.
 | `--title` | Notification title (required) |
 | `--body` | Message text |
 | `--priority` | `min`, `low`, `default`, `high`, `urgent` |
-| `--url` | An HTTPS link opened when the notification is tapped |
+| `--url` | An HTTPS link: tapping the notification opens the message and then the link in an in-app browser |
+| `--icon` | A built-in icon name such as `rocket`, `flame`, `bug` (see the [message schema](/relay/reference/message-schema)) |
 | `--tag` | A short label; repeat for up to five |
 | `--group` | Stacks related notifications together |
 | `--ttl` | Seconds to keep trying to deliver |
-| `--action` | A button, `"Label=METHOD https://…"`; repeat for up to three |
+| `--action` | A request button, `"Label=METHOD https://…"`; repeat for up to three in total with `--link` |
+| `--link` | A button that opens a page, `"Label=https://…"` |
 
 Environment: `RELAY_API_KEY` (required) and `RELAY_API_URL`. To use a local, staging or self-hosted Relay, set `RELAY_API_URL` or pass `--api-url https://your-relay.example` (the flag wins).
 

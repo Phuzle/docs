@@ -3,10 +3,10 @@ title: Trigger API
 description: Send a notification with curl, the SDK or the CLI. This is the whole public API.
 ---
 
-Relay's public API is two endpoints. Everything else (topics, keys, devices) is managed in the
+Relay's public API is two endpoints, plus one last-resort alternative ([below](#post-v1triggerpush-last-resort)). Everything else (topics, keys, devices) is managed in the
 [console](/relay/guides/console).
 
-- **Base URL:** `https://api-relay.phuzle.com`
+- **Base URL:** `https://relay.phuzle.com`
 - **Auth:** `Authorization: Bearer rly_…`, an API key from the console. A key can be limited to one
   topic.
 
@@ -34,11 +34,11 @@ relay send --topic acme-alerts --title "Deploy failed" --body "api-3 exited 137"
 	<Tab value="curl">
 ```bash
 # 1. the public keys of the phones on this topic
-curl -s "https://api-relay.phuzle.com/v1/trigger/recipients?topic=acme-alerts" \
+curl -s "https://relay.phuzle.com/v1/trigger/recipients?topic=acme-alerts" \
   -H "Authorization: Bearer $RELAY_API_KEY"
 
 # 2. send one encrypted envelope per phone (see "Build the envelopes" below)
-curl -s -X POST https://api-relay.phuzle.com/v1/trigger \
+curl -s -X POST https://relay.phuzle.com/v1/trigger \
   -H "Authorization: Bearer $RELAY_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: deploy-142" \
@@ -92,6 +92,54 @@ result with `duplicate: true` and sends nothing.
 - `rejected`: envelopes that were skipped, each with a `reason` (see [Errors](/relay/reference/errors)).
 - `missing`: active phones you sent no envelope for, usually because one paired after you fetched
   keys. Fetch recipients again and resend once; the SDK does this for you.
+
+## `POST /v1/trigger/push` (last resort)
+
+<Callout type="warn" title="Do not use this unless you have no other choice">
+	Here you send your message in **plaintext** and Relay's servers encrypt it for each phone. That
+	means **Relay can read the message while it handles your request**. It is not stored or logged,
+	but it is **not end-to-end encrypted**, and the phone marks it with a *Server-assisted* badge.
+	The [SDK](/relay/guides/sdk) and [CLI](/relay/guides/cli) encrypt on your machine so Relay never
+	sees your content. Use this only when you truly cannot run either (for example a device that can
+	only make a plain HTTP request) and you accept that trade-off.
+</Callout>
+
+It exists so a plain `curl` can send a notification. You have to opt in explicitly on every
+request with `acknowledgeServerSideEncryption: true`; without it you get `400 acknowledgement_required`
+and nothing is sent.
+
+```bash
+curl -s -X POST https://relay.phuzle.com/v1/trigger/push \
+  -H "Authorization: Bearer $RELAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: deploy-142" \
+  -d '{
+    "topic": "acme-alerts",
+    "acknowledgeServerSideEncryption": true,
+    "title": "Deploy failed",
+    "body": "api-3 exited 137",
+    "priority": "high"
+  }'
+```
+
+| Field | Type | |
+|---|---|---|
+| `topic` | string | required |
+| `acknowledgeServerSideEncryption` | `true` | required: you accept that Relay can read this message |
+| `title` | string | required, up to 120 characters |
+| `body` | string | up to 1000 characters |
+| `priority` | `min` `low` `default` `high` `urgent` | default `default` |
+| `url` | string | https only; opens when the notification is tapped |
+| `tags` | string[] | up to 5, 24 characters each |
+| `group` | string | notifications with the same group stack |
+| `actions` | object[] | up to 3 buttons, same shape as in the [message schema](/relay/reference/message-schema) |
+| `ttlSeconds`, `collapseKey` | | as for `POST /v1/trigger` |
+
+It follows the same rules as the normal endpoint (the same validation as the SDK, the 2 KiB
+message cap, your daily quota and `Idempotency-Key`). The `202` response has the same fields as
+`POST /v1/trigger`, plus `serverEncrypted: true` and a `notice` repeating the warning, and the
+`X-Relay-Encryption: server` header. Extra errors: `400 invalid_message`, `413 payload_too_large`
+and `409 no_recipients` (no phone is paired to the topic yet).
 
 ## Build the envelopes
 

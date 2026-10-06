@@ -25,7 +25,7 @@ Titles, bodies, actions and URLs of directly sent notifications. Ciphertext exis
 
 ## Server-assisted sources
 
-For integrations such as GitHub, Relay formats and encrypts the event itself, so we process that event content in memory without storing it. These are labelled "server-assisted" in the app.
+For integrations such as GitHub, and when you explicitly use the last-resort `POST /v1/trigger/push` endpoint, Relay formats and encrypts the message itself, so we process that content in memory without storing or logging it. These are labelled "server-assisted" in the app.
 
 ## Third parties
 

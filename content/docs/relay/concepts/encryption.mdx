@@ -19,11 +19,13 @@ Every phone has a separate signing identity. Requests from the app are signed an
 the server rejects replays. The public keys the SDK encrypts to are signed by that identity, so a
 tampered key set can be detected.
 
-## Integrations are server-assisted, not end-to-end
+## Integrations and `/v1/trigger/push` are server-assisted, not end-to-end
 
 For a GitHub webhook, Relay itself receives the event, formats it, and encrypts it for your phones.
-That means Relay briefly sees that content in memory. Those notifications are labelled
-**server-assisted** in the app, never "end-to-end encrypted".
+That means Relay briefly sees that content in memory. The same is true of the last-resort
+[`POST /v1/trigger/push`](/relay/reference/api#post-v1triggerpush-last-resort) endpoint, where you send plaintext
+and opt in explicitly. Those notifications are labelled **server-assisted** in the app, never
+"end-to-end encrypted".
 
 ## What Relay can still see
 

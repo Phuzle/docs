@@ -17,8 +17,12 @@ Validation errors add `details: [{ path, message }]`. Server errors never expose
 | `400` | | The request body is invalid; `details` says which field. |
 | `401` | `bad_api_key` | The key is missing, wrong, revoked or expired. Create a new one in the console. |
 | `403` | `scope_denied` | The key is limited to other topics. Use a key for this topic or for all topics. |
+| `400` | `acknowledgement_required` | `POST /v1/trigger/push` needs `acknowledgeServerSideEncryption: true`. Prefer the SDK or CLI. |
+| `400` | `invalid_message` | The message breaks a rule (empty title, a non-https link, too many buttons…). The `error` says which. |
 | `404` | | The topic doesn't exist in your organization. |
+| `409` | `no_recipients` | No phone is paired to the topic yet (`POST /v1/trigger/push`). |
 | `413` | | The request body is over 1 MB. |
+| `413` | `payload_too_large` | The message is over 2 KiB once built (`POST /v1/trigger/push`). |
 | `429` | `quota_exceeded` | The daily cap for your plan is reached. Retry after `Retry-After`, or upgrade. |
 | `429` | | Too many requests in a short burst. Retry after `Retry-After`. |
 

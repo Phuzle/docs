@@ -1,0 +1,75 @@
+---
+title: On-call: schedule, repeat, escalate
+description: Hold a notification for later, keep reminding until someone answers, and hand it to another topic if nobody does.
+---
+
+Relay can't read your messages, so it never rewrites them. It can **hold**, **re-send** and **cancel**
+the sealed copy it already has. Three features build on that, and they combine.
+
+## Schedule a send
+
+Hold delivery until a time (up to 30 days ahead). Relay keeps only the encrypted message until then and
+delivers within about ten seconds of the time you chose.
+
+```ts
+await relay.send({ topic: "acme-alerts", title: "Maintenance starts", delaySeconds: 3600 });
+// or: deliverAt: new Date("2026-10-07T09:00:00Z")
+```
+```bash
+relay send --topic acme-alerts --title "Maintenance starts" --delay 1h
+relay send --topic acme-alerts --title "Standup" --at 2026-10-07T09:00:00Z
+```
+
+## Repeat until acknowledged
+
+Re-send the **same** message every few minutes until a phone acknowledges it.
+
+```ts
+await relay.send({
+  topic: "acme-alerts",
+  title: "DB primary is down",
+  priority: "urgent",
+  repeat: { everySeconds: 300, times: 3 },   // every 5 minutes, up to 3 more times
+});
+```
+```bash
+relay send --topic acme-alerts --title "DB primary is down" --priority urgent --repeat 5m:3
+```
+
+On the phone each reminder alerts again and says *reminder 2*, *reminder 3*… A message is
+**acknowledged** when someone opens it, presses one of its buttons, or taps **Acknowledge** on the
+notification. The phone tells Relay (the message id and nothing else), and the reminders stop for
+everyone on the topic. The console's Activity shows **Reminding** while reminders are pending and
+**Acknowledged** once they stop.
+
+Limits: reminders every 1 minute to 24 hours, up to 20 of them, while the message is still within its
+lifetime (`ttlSeconds`, extended automatically to fit the reminders).
+
+## Escalate to another topic
+
+If nobody acknowledges within a time, notify a second topic, such as the next person on call.
+
+```ts
+await relay.send({
+  topic: "acme-oncall-primary",
+  title: "DB primary is down",
+  priority: "urgent",
+  repeat: { everySeconds: 120, times: 4 },
+  escalate: { topic: "acme-oncall-secondary", afterSeconds: 600, title: "Primary didn't answer: DB down" },
+});
+```
+```bash
+relay send --topic acme-oncall-primary --title "DB primary is down" --priority urgent \
+  --repeat 2m:4 --escalate-topic acme-oncall-secondary --escalate-after 10m
+```
+
+The escalation is encrypted **now**, for the second topic's phones, and held. If anyone acknowledges the
+first message before the time, it is cancelled and never delivered; otherwise it goes out (urgent by
+default) when the time comes. Because it is sealed up front, Relay still never sees its content.
+
+## Notes
+
+- Scheduled and repeating sends use the normal send path (SDK, CLI or `POST /v1/trigger`). They aren't
+  available for messages Relay builds itself (GitHub and other integrations, or `POST /v1/trigger/push`).
+- There are no recurring (cron-style) schedules: that would need Relay to hold your plaintext.
+- Acknowledging is per message, not per person: the first phone to acknowledge settles it for the topic.

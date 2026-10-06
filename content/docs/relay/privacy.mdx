@@ -16,7 +16,7 @@ cannot read their content. We store account and routing metadata, never message 
 
 - **Account:** the email, name and Google account identifier from Google sign-in, and your org name.
 - **Devices:** a public encryption key, a public signing key, your Firebase Cloud Messaging token, device model, OS and app version, and last-seen time.
-- **Routing metadata:** topics, subscriptions, message ids, size, priority, timestamps, and delivery status (queued, sent, delivered, failed). Delivery logs are kept for 30 days on the free tier.
+- **Routing metadata:** topics, subscriptions, message ids, size, priority, timestamps, and delivery status (queued, sent, delivered, failed). Delivery logs are kept for 24 hours on the free plan and longer on paid plans (up to 90 or 365 days).
 - **Secrets:** API keys, pairing tokens and sessions are stored only as one-way hashes. Webhook secrets are stored encrypted.
 
 ## What we do not collect
@@ -33,8 +33,8 @@ Google Firebase Cloud Messaging carries ciphertext to your device. Google handle
 
 ## Your choices
 
-Remove a device or topic in the console or app, revoke keys, or delete your account by contacting us. Private keys never leave your phone; uninstalling the app destroys them.
+Remove a device or topic in the console or app, revoke keys, or delete your account by emailing **support+labs.relay@phuzle.com**; we delete your account data within 30 days of confirming the request. Private keys never leave your phone; uninstalling the app destroys them.
 
 ## Contact
 
-Questions: contact Phuzle Labs through the address on phuzle.com.
+Questions or requests: **support+labs.relay@phuzle.com** (Phuzle Labs).

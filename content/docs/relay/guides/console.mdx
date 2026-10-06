@@ -8,15 +8,38 @@ description: A tour of relay.phuzle.com, where you manage topics, phones, keys a
 | Page | What it is for |
 |---|---|
 | **Overview** | Messages, deliveries, failures and latency for the period you pick, plus where messages come from and your busiest topics. Updates live. |
+| **Send** | Compose and send a full notification to a topic without any code. See below. |
 | **Activity** | The latest messages across every topic, with how many phones received each. Message content is never stored. |
 | **Topics** | Create topics and open one to see its phones, activity, integrations and settings. |
-| **Devices** | Every paired phone and when it was last seen. |
+| **Devices** | Every paired phone and when it was last seen. Give a phone a nickname to tell it apart. |
 | **API keys** | Create, rotate and revoke the keys your code uses to send. |
 | **Members** | Invite teammates with a link and set their role. See [Members and roles](/relay/concepts/members-and-roles). |
 | **Usage** | How much of your plan's limits you are using. See [Plans and limits](/relay/concepts/limits). |
 
 The account menu (top right) has your profile, billing, organization settings and the theme.
 Press `⌘K` to jump to any page or topic.
+
+## Send a message from the console
+
+**Send** lets you write and send a complete notification to every phone on a topic, with no SDK, CLI or API call.
+Choose the topic, then add:
+
+- **Title and message**, and a **priority** (Minimal to Urgent).
+- **Link** (https), **tags** (up to 5), a **group** that stacks related notifications, how long to **keep trying**
+  if a phone is offline, and a **replace key** so a newer message replaces an undelivered older one.
+- Up to three **action buttons**. Each calls your HTTPS endpoint from the phone; mark one **destructive** and the
+  phone asks for confirmation first. Headers and a body are optional.
+
+A live preview shows how it will look and how much of the 2 KiB encrypted message you have used. The message is
+encrypted in your browser with the same code as the SDK, so Relay only ever sees ciphertext. Sends from the
+console count towards your daily limit and appear in Activity and Overview as "Console messages".
+
+## Rename a phone
+
+On **Devices** (or a topic's phone list), use the pencil to give a phone a **nickname** such as "Office phone".
+The name and model the phone reported stay visible underneath. You can also rename the phone in the app, under
+**Settings → Security → This phone**; the last change wins. The nickname is shown to every organization the phone
+is paired with.
 
 ## Live updates
 

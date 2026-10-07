@@ -1,14 +1,16 @@
 ---
 title: Node & Bun SDK
-description: Send encrypted notifications from your code with @phuzlelabs/relay.
+description: Send encrypted notifications from your code with @phuzle/relay.
 ---
 
-<Callout type="warn" title="Not published yet">
-	`@phuzlelabs/relay` is not on npm yet.
-</Callout>
+```bash
+npm i @phuzle/relay      # or: bun add @phuzle/relay · pnpm add @phuzle/relay
+```
+
+Node 20+ or Bun. The package ships ESM and CommonJS builds with TypeScript types, and the encryption runs on your machine.
 
 ```ts
-import { Relay, RelayError } from "@phuzlelabs/relay";
+import { Relay, RelayError } from "@phuzle/relay";
 
 const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
 

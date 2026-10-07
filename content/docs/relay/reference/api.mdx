@@ -19,7 +19,7 @@ Relay's public API is two endpoints, plus one last-resort alternative ([below](#
 <Tabs items={["SDK", "CLI", "curl"]}>
 	<Tab value="SDK">
 ```ts
-import { Relay } from "@phuzlelabs/relay";
+import { Relay } from "@phuzle/relay";
 
 const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
 await relay.send({ topic: "acme-alerts", title: "Deploy failed", body: "api-3 exited 137" });

@@ -3,9 +3,12 @@ title: Command line
 description: Send a notification from a shell, a cron job or CI with the relay command.
 ---
 
-<Callout type="warn" title="Not published yet">
-	`@phuzlelabs/relay` is not on npm yet. The command below is what ships with it.
-</Callout>
+Install it from the same package as the SDK, or run it without installing:
+
+```bash
+npm i -g @phuzle/relay       # then: relay send …
+npx @phuzle/relay send …     # one-off, e.g. in CI
+```
 
 The CLI encrypts on your machine, then sends. It needs an API key:
 

@@ -38,6 +38,25 @@ try {
 - **Custom API URL:** pass `baseUrl` to talk to a local, staging or self-hosted Relay instead of
   `https://relay.phuzle.com`, for example `new Relay({ apiKey, baseUrl: "http://localhost:8400" })`.
 
+## Topics and devices
+
+The key can look around too, so you don't need topic names baked into scripts:
+
+```ts
+const { topics, canCreate } = await relay.topics();     // the topics this key may send to
+// topics[0] → { slug, fullName: "acme-alerts", name, description, devices: 2, createdAt }
+
+if (canCreate) {
+  const t = await relay.createTopic({ slug: "deploys", name: "Deploys", description: "CI results" });
+  await relay.send({ topic: t.fullName, title: "Hello" });   // a key limited to one topic may send to what it creates
+}
+
+const phones = await relay.devices("acme-alerts");     // nickname, model, appVersion, lastSeenAt…
+```
+
+`createTopic` needs **Can create topics** on the API key (the error code is `scope_denied` otherwise), counts toward your
+plan's topic limit (`topic_limit`) and answers `slug_taken` if the name exists. It is not retried automatically.
+
 ## CLI
 
 The same package installs a `relay` command; see [Command line](/relay/guides/cli).

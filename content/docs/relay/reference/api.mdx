@@ -3,12 +3,12 @@ title: Trigger API
 description: Send a notification with curl, the SDK or the CLI. This is the whole public API.
 ---
 
-Relay's public API is two endpoints, plus one last-resort alternative ([below](#post-v1triggerpush-last-resort)). Everything else (topics, keys, devices) is managed in the
+Relay's public API is two endpoints to send, plus [three to discover and create topics](#topics-and-devices) and one last-resort alternative ([below](#post-v1triggerpush-last-resort)). Everything else (members, keys, billing) is managed in the
 [console](/relay/guides/console).
 
 - **Base URL:** `https://relay.phuzle.com`
 - **Auth:** `Authorization: Bearer rly_…`, an API key from the console. A key can be limited to one
-  topic.
+  topic, and can be allowed to create topics.
 
 <Callout title="Use the SDK or CLI unless you have a reason not to">
 	Messages are end-to-end encrypted, so the request carries one encrypted envelope per phone, not
@@ -46,6 +46,20 @@ curl -s -X POST https://relay.phuzle.com/v1/trigger \
 ```
 	</Tab>
 </Tabs>
+
+## Topics and devices
+
+The same API key can look around, so scripts don't need topic names hard-coded.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /v1/trigger/topics` | The topics this key may send to: `{ data: [{ id, slug, fullName, name, description, devices, createdAt }], canCreate }`. `fullName` is what you pass as `topic`. A key limited to one topic sees only that one. |
+| `POST /v1/trigger/topics` | Create a topic: `{ slug, name, description? }` → `201` with the topic. Needs **Can create topics** on the key. Counts against your plan's topic limit. A key limited to specific topics is allowed to send to the topics it creates. |
+| `GET /v1/trigger/topics/{topic}/devices` | The phones receiving a topic (`{topic}` is the full name): nickname, model, platform, app version, last seen, when they subscribed. Never keys or tokens. The key must be allowed to send to the topic. |
+
+Errors: `403 scope_denied` (the key isn't allowed to create topics, or to see that topic), `403 topic_limit`
+(your plan's topics are used up), `403 scope_limit` (the key already holds 20 permissions), `409 slug_taken`,
+`400 bad_slug`. Creating is also rate limited to 20 topics an hour per key.
 
 ## `GET /v1/trigger/recipients`
 

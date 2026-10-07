@@ -20,6 +20,17 @@ relay send --topic acme-alerts --title "Backup finished" --body "412 GB in 6 min
 On success it prints `sent <id> → 2 devices` and exits `0`. Any failure prints a one-line reason
 and exits `1`, so it works in `set -e` scripts and CI steps.
 
+## Topics and devices
+
+```bash
+relay topics                                   # topics this key can send to, and whether it can create more
+relay topics create deploys --name "Deploys"   # needs "Can create topics" on the key
+relay devices --topic acme-alerts              # the phones receiving a topic
+```
+
+Add `--json` to `topics` or `devices` for machine-readable output. A key limited to one topic lists just that topic, and
+can send to the topics it creates.
+
 ## Options
 
 | Flag | |

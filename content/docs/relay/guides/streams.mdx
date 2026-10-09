@@ -80,6 +80,7 @@ const sub = relay.topic("acme-github-api").subscribe({
   ack: "manual",      // only ev.ack() counts; "auto" is the default
   prefetch: 20,       // events out for handling at once; Relay sends no more until you acknowledge some
   lease: 30,          // seconds to acknowledge before the event is delivered again
+  format: "bin",       // default: ciphertext as raw bytes, ~25% smaller than "sse" text
   from: "last-acked", // or "latest" to skip what is waiting, or a sequence number to replay from
 });
 for await (const ev of sub) {

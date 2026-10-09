@@ -28,8 +28,8 @@ relay topics create deploys --name "Deploys"   # needs "Can create topics" on th
 relay devices --topic acme-alerts              # the phones receiving a topic
 ```
 
-Add `--json` to `topics` or `devices` for machine-readable output. A key limited to one topic lists just that topic, and
-can send to the topics it creates.
+Add `--json` to `topics` or `devices` for machine-readable output. A key limited to one topic lists just that topic. Only a key
+that can send to all topics can be allowed to create topics.
 
 ## Options
 

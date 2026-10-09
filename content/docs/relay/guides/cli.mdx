@@ -40,7 +40,9 @@ relay listen --topic acme-github-api --forward http://localhost:3000/webhooks/gi
 
 `listen` prints each event and, with `--forward`, POSTs it to your local server with the original headers: a
 webhook tunnel with no public address. Options: `--name` (the consumer's name, default `cli`), `--key`
-(otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--json`, `--count N`.
+(otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--from last-acked|latest|<seq>`, `--json`, `--count N`.
+An event is marked handled once it is printed or, with `--forward`, once your server answers below 500; otherwise it
+comes back after 30 seconds.
 See [Relay Streams](/relay/guides/streams).
 
 ## Options

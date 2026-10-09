@@ -3,9 +3,11 @@ title: "Relay Streams: receive webhooks on your server"
 description: Point GitHub, Stripe and others at a Relay topic and receive the events in your own code or on your laptop, with no public URL.
 ---
 
-<Callout type="warn" title="Live only for now">
-	Relay Streams delivers events to servers that are **connected right now**. Events that arrive while your
-	server is disconnected are not replayed. Replay, resume and at-least-once delivery are the next step.
+<Callout type="info" title="At-least-once, with a window">
+	Events wait for your server while it is away, for your plan's retention (Free 1 hour, Pro 24 hours, Team 7
+	days), and are redelivered until you acknowledge them. Past that window they are dropped and your server is told.
+	An event can arrive twice, so handle repeats by `id`. There is no exactly-once, and ordering holds for a single
+	connection.
 </Callout>
 
 A topic can send its events to **phones** (a notification) and to **servers** (the raw webhook). A server
@@ -14,7 +16,7 @@ public address: it works from a laptop, a container behind NAT or a CI job.
 
 ```
 GitHub ──webhook──▶ Relay topic ──▶ your phone (notification)
-                              └──▶ your server (raw event, live)
+                              └──▶ your server (raw event, kept until you acknowledge it)
 ```
 
 ## 1. Turn on "Servers" for an integration
@@ -60,10 +62,43 @@ you create a new one; events already sealed to the old one cannot be opened.
 | `deliveryId` | the provider's own delivery id when it sends one |
 | `headers` | descriptive headers of the original request, such as `x-github-event` and `x-hub-signature-256` (never credentials) |
 | `body`, `json()` | the original body, byte for byte, and its parsed form |
-| `truncated` | the body was over 256 KB and is not included |
+| `seq`, `attempt` | the topic's sequence number, and how many times it has been handed out |
+| `truncated` | the body was over your plan's event limit and is not included |
 
 The SDK reconnects on its own (backoff with jitter, a heartbeat watchdog) and keeps going until you call
 `sub.close()`. Listen for `sub.on("reconnecting", …)` if you want to log it.
+
+## Acknowledging, retries and replay
+
+Relay keeps each event for your consumer until you **acknowledge** it. By default the SDK does that for you: an event
+counts as handled when your `for await` loop moves on to the next one, so if your handler throws, the event is not
+acknowledged and **comes back** (with `attempt` 2, 3, …). Restart your server and it resumes where it stopped.
+
+```ts
+const sub = relay.topic("acme-github-api").subscribe({
+  name: "deploy-bot",
+  ack: "manual",      // only ev.ack() counts; "auto" is the default
+  prefetch: 20,       // events out for handling at once; Relay sends no more until you acknowledge some
+  lease: 30,          // seconds to acknowledge before the event is delivered again
+  from: "last-acked", // or "latest" to skip what is waiting, or a sequence number to replay from
+});
+for await (const ev of sub) {
+  await handle(ev);
+  await ev.ack();     // or ev.nack() to hand it back at once
+}
+sub.on("gap", (g) => log(`missed ${g.count} events (#${g.fromSeq}–${g.toSeq}): ${g.reason}`));
+```
+
+| | |
+|---|---|
+| `ev.seq` | the topic's running sequence number for the event |
+| `ev.attempt` | how many times it has been handed out |
+| `from: 12` | replays everything from #12 that is still inside your retention, acknowledged or not |
+| `gap` | events were dropped before you took them: `expired` (you were away longer than retention) or `overflow` (your backlog passed your plan's cap) |
+
+**Scaling out:** start several processes with the same consumer name and key and they share the events like a work
+queue: each event goes to one of them, and if a process dies without acknowledging, the others get its events. Order is
+then per process, not global.
 
 ## On your laptop: a webhook tunnel
 
@@ -81,14 +116,17 @@ for you.
 | | Free | Pro | Team |
 |---|---|---|---|
 | Consumers per topic | 1 | 5 | 20 |
-| Largest event | 256 KB | 256 KB | 256 KB |
+| Largest event | 64 KB | 256 KB | 256 KB |
+| Kept for you while away | 1 hour | 24 hours | 7 days |
+| Waiting events per consumer | 200 | 5,000 | 50,000 |
 
 A webhook source may send up to 600 deliveries a minute to a topic that streams (60 if it only notifies phones).
-Up to 3 connections can be open per consumer; each gets every event.
+Up to 3 connections can be open per consumer; they share the events. A body over the event limit is announced as
+`truncated` rather than clipped.
 
 ## Privacy: what Relay can and can't see
 
 This is **server-assisted**, not end-to-end encrypted: the provider sends Relay the webhook in the clear (Relay has
 to check its signature), so Relay can read an event for the moment it passes through. It then seals it to your
-consumer key in memory and sends only ciphertext; nothing is written to disk. A stolen API key can open a stream
+consumer key in memory. Only ciphertext is stored (until you acknowledge it or retention ends) or sent. A stolen API key can open a stream
 but receives ciphertext it cannot read. See [Encryption](/relay/concepts/encryption).

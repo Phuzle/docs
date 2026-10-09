@@ -94,7 +94,7 @@ sub.on("gap", (g) => log(`missed ${g.count} events (#${g.fromSeq}–${g.toSeq}):
 | `ev.seq` | the topic's running sequence number for the event |
 | `ev.attempt` | how many times it has been handed out |
 | `from: 12` | replays everything from #12 that is still inside your retention, acknowledged or not |
-| `gap` | events were dropped before you took them: `expired` (you were away longer than retention) or `overflow` (your backlog passed your plan's cap) |
+| `gap` | events were dropped before you took them: `expired` (you were away longer than retention) `overflow` (your backlog passed your plan's cap) or `egress` (you used the day's data allowance) |
 
 **Scaling out:** start several processes with the same consumer name and key and they share the events like a work
 queue: each event goes to one of them, and if a process dies without acknowledging, the others get its events. Order is
@@ -111,6 +111,34 @@ Octokit's own verification and SDKs keep working. Point the provider at your Rel
 that your laptop just needs to run the command. The first run creates a consumer key under `~/.relay/consumers`
 for you.
 
+## Filter, cut down and collapse
+
+Tell Relay what you want and unwanted events cost nothing: they aren't stored, sent or counted.
+
+```ts
+const sub = relay.topic("acme-github-api").subscribe({
+  name: "deploy-bot",
+  filter: {
+    types: ["push", "pull_request"],                              // only these events
+    where: [{ path: "ref", op: "equals", value: "refs/heads/main" }], // every condition must hold
+    ignoreWhen: [{ path: "repository.fork", op: "equals", value: "true" }],
+    project: ["ref", "repository.full_name", "commits[].message"],    // keep only these parts of the body
+    collapseKey: "{{repository.full_name}}:{{ref}}",                 // a newer event replaces an older waiting one
+  },
+});
+```
+
+On the command line: `relay listen --type push --type pull_request`.
+
+- **Conditions** use the same operators as an integration mapping: `equals`, `not_equals`, `contains`, `exists`, `gt`, `lt`.
+- **`project`** keeps only the listed paths (`a.b`, `items[].name`). The event says `projected` and the body is no longer
+  the provider's original bytes, so don't verify the provider's signature on it. Headers are untouched.
+- **`collapseKey`** is for state that supersedes itself (a build status, a deploy state): a newer event with the same key
+  replaces an older one that is still waiting. One you are already handling is never taken away.
+- Filters are registered with the consumer, and the latest registration wins, so processes that share a name should share
+  a filter. They apply to events from then on.
+- Large events (over 2 KB) are compressed before they are sealed, and the SDK unpacks them for you.
+
 ## Limits
 
 | | Free | Pro | Team |
@@ -119,6 +147,7 @@ for you.
 | Largest event | 64 KB | 256 KB | 256 KB |
 | Kept for you while away | 1 hour | 24 hours | 7 days |
 | Waiting events per consumer | 200 | 5,000 | 50,000 |
+| Data stored for your consumers per day | 50 MB | 2 GB | 20 GB |
 
 A webhook source may send up to 600 deliveries a minute to a topic that streams (60 if it only notifies phones).
 Up to 3 connections can be open per consumer; they share the events. A body over the event limit is announced as

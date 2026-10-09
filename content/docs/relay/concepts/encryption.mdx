@@ -19,6 +19,12 @@ Every phone has a separate signing identity. Requests from the app are signed an
 the server rejects replays. The public keys the SDK encrypts to are signed by that identity, so a
 tampered key set can be detected.
 
+## Relay Streams: webhooks to your server
+
+If you turn on **Servers** for an integration, Relay also hands the raw webhook to your own code. Same rule: the
+provider sends it in the clear, so this is server-assisted. Relay seals it to your **consumer key** in memory and
+sends only ciphertext; only your server can open it. See [Relay Streams](/relay/guides/streams).
+
 ## Integrations and `/v1/trigger/push` are server-assisted, not end-to-end
 
 For a GitHub webhook, Relay itself receives the event, formats it, and encrypts it for your phones.

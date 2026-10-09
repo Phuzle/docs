@@ -44,6 +44,12 @@ dialog (or later with the key button). Until you do, deliveries from that servic
 	it.
 </Callout>
 
+## Where the events go: phones, servers, or both
+
+Each integration sends its events to **Phones** (a notification), **Servers** (the raw webhook, live, to your own
+code through the SDK or `relay listen`), or both. Choose when you add it, or change it any time with the switches
+on the integration. At least one must stay on. See [Relay Streams](/relay/guides/streams).
+
 ## What gets notified
 
 Each source has sensible defaults: failures and disputes are **high** or **urgent**, successes are

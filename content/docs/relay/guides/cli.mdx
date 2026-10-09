@@ -31,6 +31,18 @@ relay devices --topic acme-alerts              # the phones receiving a topic
 Add `--json` to `topics` or `devices` for machine-readable output. A key limited to one topic lists just that topic. Only a key
 that can send to all topics can be allowed to create topics.
 
+## Receive webhooks on your laptop
+
+```bash
+relay key                                                 # a new consumer key (keep it secret)
+relay listen --topic acme-github-api --forward http://localhost:3000/webhooks/github
+```
+
+`listen` prints each event and, with `--forward`, POSTs it to your local server with the original headers: a
+webhook tunnel with no public address. Options: `--name` (the consumer's name, default `cli`), `--key`
+(otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--json`, `--count N`.
+See [Relay Streams](/relay/guides/streams).
+
 ## Options
 
 | Flag | |

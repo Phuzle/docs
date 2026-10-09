@@ -7,6 +7,7 @@
     "actions",
     "on-call",
     "integrations",
+    "streams",
     "github-integration",
     "receiving-on-android"
   ]

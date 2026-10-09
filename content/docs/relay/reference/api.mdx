@@ -47,6 +47,16 @@ curl -s -X POST https://relay.phuzle.com/v1/trigger \
 	</Tab>
 </Tabs>
 
+## Streams (receiving events)
+
+For servers that subscribe to a topic ([Relay Streams](/relay/guides/streams)); the SDK and CLI do all of this for you.
+
+| Endpoint | |
+|---|---|
+| `PUT /v1/stream/{topic}/consumers/{name}` | Register a consumer with its public keys (idempotent). Needs a key with `subscribe:*` or `subscribe:<topic>`. `403 consumer_limit` when the plan's consumers per topic are used. |
+| `DELETE /v1/stream/{topic}/consumers/{name}` | Remove it. |
+| `GET /v1/stream/{topic}/events?consumer={name}` | Server-sent events: `ready`, then `event` frames `{id, at, source, type, size, enc, ct}` (an HPKE envelope for your consumer; the plaintext is the whole event), `: ping` every 15 s, `bye` when the server recycles the stream or the consumer is removed. Live only. |
+
 ## Topics and devices
 
 The same API key can look around, so scripts don't need topic names hard-coded.

@@ -1,0 +1,94 @@
+---
+title: "Relay Streams: receive webhooks on your server"
+description: Point GitHub, Stripe and others at a Relay topic and receive the events in your own code or on your laptop, with no public URL.
+---
+
+<Callout type="warn" title="Live only for now">
+	Relay Streams delivers events to servers that are **connected right now**. Events that arrive while your
+	server is disconnected are not replayed. Replay, resume and at-least-once delivery are the next step.
+</Callout>
+
+A topic can send its events to **phones** (a notification) and to **servers** (the raw webhook). A server
+subscribes with one long-lived connection that it opens itself, so there is nothing to host, no tunnel, and no
+public address: it works from a laptop, a container behind NAT or a CI job.
+
+```
+GitHub ──webhook──▶ Relay topic ──▶ your phone (notification)
+                              └──▶ your server (raw event, live)
+```
+
+## 1. Turn on "Servers" for an integration
+
+Add an integration to a topic as usual (GitHub, GitLab, Stripe, Sentry, any JSON webhook…). In **Send the events
+to**, switch **Servers** on (you can leave **Phones** on too). The generic webhook can be servers-only, with no
+mapping to write.
+
+## 2. Create a key that can receive
+
+**API keys → New key → Can receive events from**: all topics, or one. (A key can also send, or only receive.)
+
+## 3. Subscribe
+
+```ts
+import { Relay } from "@phuzle/relay";
+
+const relay = new Relay({ apiKey: process.env.RELAY_API_KEY! });
+const sub = relay.topic("acme-github-api").subscribe({ name: "deploy-bot" }); // key from RELAY_CONSUMER_KEY
+
+for await (const ev of sub) {
+  if (ev.type === "push") await deploy(ev.json());
+}
+```
+
+The **consumer key** is a 43-character secret that you create once and keep with your other secrets:
+
+```bash
+relay key            # prints a new consumer key
+export RELAY_CONSUMER_KEY=…
+```
+
+It derives the consumer's encryption key. Relay seals every event to it, stores only the public half, and cannot
+open anything itself. Every process that uses the same **name** and key is the same consumer. Lose the key and
+you create a new one; events already sealed to the old one cannot be opened.
+
+### What an event looks like
+
+| Field | |
+|---|---|
+| `id` | Relay's id for the event (use it to de-duplicate) |
+| `source`, `type` | `github` + `push`, `stripe` + `invoice.paid`, … |
+| `deliveryId` | the provider's own delivery id when it sends one |
+| `headers` | descriptive headers of the original request, such as `x-github-event` and `x-hub-signature-256` (never credentials) |
+| `body`, `json()` | the original body, byte for byte, and its parsed form |
+| `truncated` | the body was over 256 KB and is not included |
+
+The SDK reconnects on its own (backoff with jitter, a heartbeat watchdog) and keeps going until you call
+`sub.close()`. Listen for `sub.on("reconnecting", …)` if you want to log it.
+
+## On your laptop: a webhook tunnel
+
+```bash
+relay listen --topic acme-github-api --forward http://localhost:3000/webhooks/github
+```
+
+Each event is printed and replayed to your local server **with the original headers**, so GitHub's, Stripe's and
+Octokit's own verification and SDKs keep working. Point the provider at your Relay integration's URL once; after
+that your laptop just needs to run the command. The first run creates a consumer key under `~/.relay/consumers`
+for you.
+
+## Limits
+
+| | Free | Pro | Team |
+|---|---|---|---|
+| Consumers per topic | 1 | 5 | 20 |
+| Largest event | 256 KB | 256 KB | 256 KB |
+
+A webhook source may send up to 600 deliveries a minute to a topic that streams (60 if it only notifies phones).
+Up to 3 connections can be open per consumer; each gets every event.
+
+## Privacy: what Relay can and can't see
+
+This is **server-assisted**, not end-to-end encrypted: the provider sends Relay the webhook in the clear (Relay has
+to check its signature), so Relay can read an event for the moment it passes through. It then seals it to your
+consumer key in memory and sends only ciphertext; nothing is written to disk. A stolen API key can open a stream
+but receives ciphertext it cannot read. See [Encryption](/relay/concepts/encryption).

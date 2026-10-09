@@ -139,6 +139,50 @@ On the command line: `relay listen --type push --type pull_request`.
   a filter. They apply to events from then on.
 - Large events (over 2 KB) are compressed before they are sealed, and the SDK unpacks them for you.
 
+## Forward to a URL (serverless and hosted apps)
+
+If your app can't hold a connection open (a serverless function, a hosted app), let Relay call **you**. On a topic's
+**Servers** tab, **Forward to a URL → Add target**, and give it an `https://` address. Relay then `POST`s each event
+from the topic's “Servers” integrations to it. Forwarding is part of Pro (3 targets per topic) and Team (20).
+
+> **Trust:** unlike the SDK, a forwarded event is readable by Relay while it is delivered (it waits in a queue sealed
+> with a server key, and is cleared once your server accepts it). It is not end-to-end encrypted. Use the SDK if that
+> matters.
+
+Each request carries the original body and the provider's own headers (`X-GitHub-Event`, …, never credentials), plus:
+
+| Header | |
+|---|---|
+| `Relay-Signature` | `t=<unix seconds>,v1=<hex HMAC-SHA256 of "t.body">` with the target's secret |
+| `Relay-Event-Id` | the event's id: use it to ignore repeats |
+| `Relay-Event-Type`, `Relay-Source` | e.g. `push`, `github` |
+| `Relay-Attempt` | 1 for the first try, then 2, 3… |
+| `Relay-Truncated` | `1` when the body was over your plan's limit and is empty |
+
+Verify it before trusting the request:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verify(secret: string, header: string, rawBody: string) {
+  const t = /t=(\d+)/.exec(header)?.[1];
+  const sig = /v1=([0-9a-f]+)/.exec(header)?.[1];
+  if (!t || !sig || Math.abs(Date.now() / 1000 - Number(t)) > 300) return false; // reject old requests
+  const want = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
+  return sig.length === want.length && timingSafeEqual(Buffer.from(sig), Buffer.from(want));
+}
+```
+
+**Delivery:** answer with any `2xx` to accept. A `5xx`, a timeout, `408`, `425` or `429` is retried (after 10 s, 1 min,
+5 min, 30 min, 2 h, 6 h, 12 h; `Retry-After` is honoured) for up to 8 attempts, about a day. Any other `4xx`, and
+redirects (never followed), fail at once. Failed deliveries are kept 7 days: **Replay** them from the console once
+your server is fixed. After 20 failures in a row the target is **paused** and nothing more is queued for it until you
+resume it. Order is not guaranteed.
+
+**Safety:** targets must be public `https://` hostnames. Relay refuses addresses that resolve to private,
+loopback, link-local or cloud-metadata ranges on every call, never follows redirects, and waits at most 10 seconds. The
+same filters, projection and collapsing as for the SDK apply per target.
+
 ## Limits
 
 | | Free | Pro | Team |
@@ -148,6 +192,7 @@ On the command line: `relay listen --type push --type pull_request`.
 | Kept for you while away | 1 hour | 24 hours | 7 days |
 | Waiting events per consumer | 200 | 5,000 | 50,000 |
 | Data stored for your consumers per day | 50 MB | 2 GB | 20 GB |
+| Forward targets per topic | none | 3 | 20 |
 
 A webhook source may send up to 600 deliveries a minute to a topic that streams (60 if it only notifies phones).
 Up to 3 connections can be open per consumer; they share the events. A body over the event limit is announced as

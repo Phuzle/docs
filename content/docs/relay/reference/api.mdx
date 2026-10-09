@@ -57,6 +57,7 @@ For servers that subscribe to a topic ([Relay Streams](/relay/guides/streams)); 
 | `DELETE /v1/stream/{topic}/consumers/{name}` | Remove it. |
 | `GET /v1/stream/{topic}/events?consumer={name}` | Server-sent events: `ready`, then `event` frames `{id, seq, at, source, type, size, attempt, enc, ct}` (an HPKE envelope for your consumer; the plaintext is the whole event), `gap` when events were dropped before you took them, `: ping` every 15 s, `bye` when the server recycles the stream or the consumer is removed. Query: `from` (`last-acked`, `latest` or a sequence number), `prefetch` (1–100), `lease` (5–300 s). Events stay until acknowledged. |
 | `POST /v1/stream/{topic}/ack` | `{consumer, seqs?, upTo?, nack?}`: acknowledge events, or hand them back. |
+| `POST /v1/topics/{id}/forwards` | (console session) add a forward target `{name, url}`; returns the signing secret once. Manage with `PATCH`/`DELETE /v1/forwards/{id}`, `POST /v1/forwards/{id}/resume`, `/rotate-secret`, `/test`, `/replay`. See [Relay Streams](/relay/guides/streams). |
 
 ## Topics and devices
 

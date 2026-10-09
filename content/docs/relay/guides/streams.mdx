@@ -5,7 +5,8 @@ description: Point GitHub, Stripe and others at a Relay topic and receive the ev
 
 <Callout type="info" title="At-least-once, with a window">
 	Events wait for your server while it is away, for your plan's retention (Free 1 hour, Pro 24 hours, Team 7
-	days), and are redelivered until you acknowledge them. Past that window they are dropped and your server is told.
+	days), and are redelivered until you acknowledge them. Once you acknowledge an event Relay deletes its stored
+	copy (Pro and Team can replay a handled event for 1 hour and 24 hours). Past that window they are dropped and your server is told.
 	An event can arrive twice, so handle repeats by `id`. There is no exactly-once, and ordering holds for a single
 	connection.
 </Callout>
@@ -94,7 +95,7 @@ sub.on("gap", (g) => log(`missed ${g.count} events (#${g.fromSeq}–${g.toSeq}):
 |---|---|
 | `ev.seq` | the topic's running sequence number for the event |
 | `ev.attempt` | how many times it has been handed out |
-| `from: 12` | replays everything from #12 that is still inside your retention, acknowledged or not |
+| `from: 12` | replays everything from #12 that is still waiting, plus handled events still inside your plan's replay window (Pro 1 hour, Team 24 hours; Free: none, a handled event is deleted at once) |
 | `gap` | events were dropped before you took them: `expired` (you were away longer than retention) `overflow` (your backlog passed your plan's cap) or `egress` (you used the day's data allowance) |
 
 **Scaling out:** start several processes with the same consumer name and key and they share the events like a work
@@ -180,6 +181,8 @@ redirects (never followed), fail at once. Failed deliveries are kept 7 days: **R
 your server is fixed. After 20 failures in a row the target is **paused** and nothing more is queued for it until you
 resume it. Order is not guaranteed.
 
+**Your own headers:** if your endpoint needs something such as `Authorization: Bearer …`, add up to 5 headers when you edit the target. They are sealed on Relay's side and never shown again (only their names), and they can't replace headers Relay sets itself (`Content-Type`, `User-Agent`, `Relay-*`).
+
 **Safety:** targets must be public `https://` hostnames. Relay refuses addresses that resolve to private,
 loopback, link-local or cloud-metadata ranges on every call, never follows redirects, and waits at most 10 seconds. The
 same filters, projection and collapsing as for the SDK apply per target.
@@ -192,10 +195,12 @@ same filters, projection and collapsing as for the SDK apply per target.
 | Largest event | 64 KB | 256 KB | 256 KB |
 | Kept for you while away | 1 hour | 24 hours | 7 days |
 | Waiting events per consumer | 200 | 5,000 | 50,000 |
+| Replay of handled events | none | 1 hour | 24 hours |
+| Incoming webhooks per integration | 10/s, bursts of 200 | 10/s, bursts of 200 | 10/s, bursts of 200 |
 | Data stored for your consumers per day | 50 MB | 2 GB | 20 GB |
 | Forward targets per topic | none | 3 | 20 |
 
-A webhook source may send up to 600 deliveries a minute to a topic that streams (60 if it only notifies phones).
+A webhook source may send 10 deliveries a second to a topic that streams (1 a second if it only notifies phones), and a burst of 200 (60) at once is accepted.
 Up to 3 connections can be open per consumer; they share the events. A body over the event limit is announced as
 `truncated` rather than clipped.
 

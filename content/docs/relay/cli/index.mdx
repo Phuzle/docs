@@ -62,6 +62,10 @@ relay key                                                 # a new consumer key (
 relay listen --topic acme-github-api --forward http://localhost:3000/webhooks/github
 ```
 
+`listen --out events.ndjson` appends every event to a file as one JSON line (the same object `--json` prints), so another process can
+tail it, or pass a named pipe (`mkfifo`) to feed one directly. An event counts as handled only after it is written; if the write fails
+it stays on Relay and comes back.
+
 `listen` prints each event and, with `--forward`, POSTs it to your local server with the original headers: a
 webhook tunnel with no public address. Options: `--name` (the consumer's name, default `cli`), `--key`
 (otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--from last-acked|latest|<seq>`, `--json`, `--count N`.

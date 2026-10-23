@@ -10,7 +10,31 @@ npm i -g @phuzle/relay       # then: relay send …
 npx @phuzle/relay send …     # one-off, e.g. in CI
 ```
 
-The CLI encrypts on your machine, then sends. It needs an API key:
+The CLI encrypts on your machine, then sends. Sign in once, or use an API key.
+
+## Sign in with `relay login`
+
+```bash
+relay login
+```
+
+It prints a short code (like `BCDF-GHJK`) and opens your browser. Sign in to the console, check the code matches, pick the organisation
+and what this machine may do (send to all or some topics, receive events, create topics) and how long the key lasts, then approve. The
+CLI picks the key up on its own; there is nothing to copy. Add `--no-browser` on a server or over SSH and open the link yourself, or
+pre-fill the choices with `--org`, `--send all|<topic>,…`, `--receive …` and `--create-topics` (you still decide on the page).
+
+The key is kept in `~/.relay/credentials.json` (readable only by you), per API URL, and shows up in **API keys** in the console marked
+**CLI** with the machine's name. Only admins and owners can approve a login.
+
+```bash
+relay whoami     # the organisation and permissions of the stored login
+relay logout     # revokes that key and forgets it
+```
+
+`RELAY_API_KEY`, when set, always wins over the stored login, which is what you want in CI. The SDK never reads the file: in code you
+keep using the API key you give it. Keys made by `relay login` start with `rly_cli_`; keys from the console start with `rly_`.
+
+## With an API key
 
 ```bash
 export RELAY_API_KEY=rly_...
@@ -43,7 +67,7 @@ webhook tunnel with no public address. Options: `--name` (the consumer's name, d
 (otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--from last-acked|latest|<seq>`, `--json`, `--count N`.
 An event is marked handled once it is printed or, with `--forward`, once your server answers below 500; otherwise it
 comes back after 30 seconds.
-See [Relay Streams](/relay/guides/streams).
+See [Relay Streams](/relay/streams).
 
 ## Options
 
@@ -54,7 +78,7 @@ See [Relay Streams](/relay/guides/streams).
 | `--body` | Message text |
 | `--priority` | `min`, `low`, `default`, `high`, `urgent` |
 | `--url` | An HTTPS link: tapping the notification opens the message and then the link in an in-app browser |
-| `--icon` | A built-in icon name such as `rocket`, `flame`, `bug` (see the [message schema](/relay/reference/message-schema)) |
+| `--icon` | A built-in icon name such as `rocket`, `flame`, `bug` (see the [message schema](/relay/api/message-schema)) |
 | `--tag` | A short label; repeat for up to five |
 | `--group` | Stacks related notifications together |
 | `--ttl` | Seconds to keep trying to deliver |
@@ -81,7 +105,7 @@ relay send --topic acme-alerts --title "Deploy finished" \
   --action "Roll back!=POST https://ops.example.com/rollback/482"
 ```
 
-Buttons from `--action` and `--link` share the limit of three. See [Actions](/relay/guides/actions).
+Buttons from `--action` and `--link` share the limit of three. See [Actions](/relay/app/actions).
 
 ## In CI and cron
 
@@ -94,4 +118,4 @@ Buttons from `--action` and `--link` share the limit of three. See [Actions](/re
 
 Keep the key in your CI's secret store. Prefer a key limited to the one topic it sends to.
 
-To hold, repeat or escalate a message see [On-call](/relay/guides/on-call): `--delay 10m` / `--at <time>`, `--repeat 5m:3`, `--escalate-topic <topic> --escalate-after 10m`.
+To hold, repeat or escalate a message see [On-call](/relay/sdk/on-call): `--delay 10m` / `--at <time>`, `--repeat 5m:3`, `--escalate-topic <topic> --escalate-after 10m`.

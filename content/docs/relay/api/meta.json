@@ -1,8 +1,9 @@
 {
-  "title": "Reference",
+  "title": "API",
   "pages": [
-    "api",
+    "index",
     "message-schema",
+    "delivery",
     "errors"
   ]
 }

@@ -67,10 +67,10 @@ for await (const ev of sub) console.log(ev.source, ev.type, ev.json());
 ```
 
 It reconnects by itself and is at-least-once: events wait for you while you are away and come back until acknowledged
-(`ev.ack()`, or automatically when your loop moves on). See [Relay Streams](/relay/guides/streams).
+(`ev.ack()`, or automatically when your loop moves on). See [Relay Streams](/relay/streams).
 
 ## CLI
 
-The same package installs a `relay` command; see [Command line](/relay/guides/cli).
+The same package installs a `relay` command; see [Command line](/relay/cli).
 
-Scheduling, `repeat` and `escalate` are covered in [On-call](/relay/guides/on-call).
+Scheduling, `repeat` and `escalate` are covered in [On-call](/relay/sdk/on-call).

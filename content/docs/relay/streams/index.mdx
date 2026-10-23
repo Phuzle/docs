@@ -209,4 +209,4 @@ Up to 3 connections can be open per consumer; they share the events. A body over
 This is **server-assisted**, not end-to-end encrypted: the provider sends Relay the webhook in the clear (Relay has
 to check its signature), so Relay can read an event for the moment it passes through. It then seals it to your
 consumer key in memory. Only ciphertext is stored (until you acknowledge it or retention ends) or sent. A stolen API key can open a stream
-but receives ciphertext it cannot read. See [Encryption](/relay/concepts/encryption).
+but receives ciphertext it cannot read. See [Encryption](/relay/security/encryption).

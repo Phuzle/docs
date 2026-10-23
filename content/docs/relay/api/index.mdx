@@ -4,15 +4,15 @@ description: Send a notification with curl, the SDK or the CLI. This is the whol
 ---
 
 Relay's public API is two endpoints to send, plus [three to discover and create topics](#topics-and-devices) and one last-resort alternative ([below](#post-v1triggerpush-last-resort)). Everything else (members, keys, billing) is managed in the
-[console](/relay/guides/console).
+[console](/relay/console).
 
 - **Base URL:** `https://relay.phuzle.com`
-- **Auth:** `Authorization: Bearer rly_…`, an API key from the console. A key can be limited to one
+- **Auth:** `Authorization: Bearer rly_…`, an API key from the console (`rly_…`) or a key made by [`relay login`](/relay/cli) (`rly_cli_…`); both work the same. A key can be limited to one
   topic, and can be allowed to create topics.
 
 <Callout title="Use the SDK or CLI unless you have a reason not to">
 	Messages are end-to-end encrypted, so the request carries one encrypted envelope per phone, not
-	your text. The [SDK](/relay/guides/sdk) and the [CLI](/relay/guides/cli) fetch the keys
+	your text. The [SDK](/relay/sdk) and the [CLI](/relay/cli) fetch the keys
 	and do the encryption for you. Use the raw endpoints only when you are building your own client.
 </Callout>
 
@@ -49,7 +49,7 @@ curl -s -X POST https://relay.phuzle.com/v1/trigger \
 
 ## Streams (receiving events)
 
-For servers that subscribe to a topic ([Relay Streams](/relay/guides/streams)); the SDK and CLI do all of this for you.
+For servers that subscribe to a topic ([Relay Streams](/relay/streams)); the SDK and CLI do all of this for you.
 
 | Endpoint | |
 |---|---|
@@ -57,7 +57,7 @@ For servers that subscribe to a topic ([Relay Streams](/relay/guides/streams)); 
 | `DELETE /v1/stream/{topic}/consumers/{name}` | Remove it. |
 | `GET /v1/stream/{topic}/events?consumer={name}` | Server-sent events: `ready`, then `event` frames `{id, seq, at, source, type, size, attempt, enc, ct}` (an HPKE envelope for your consumer; the plaintext is the whole event), `gap` when events were dropped before you took them, `: ping` every 15 s, `bye` when the server recycles the stream or the consumer is removed. Query: `from` (`last-acked`, `latest` or a sequence number), `prefetch` (1–100), `lease` (5–300 s), `format` (`sse` text, or `bin` for length-prefixed binary frames, 25% smaller). Events stay until acknowledged. |
 | `POST /v1/stream/{topic}/ack` | `{consumer, seqs?, upTo?, nack?}`: acknowledge events, or hand them back. |
-| `POST /v1/topics/{id}/forwards` | (console session) add a forward target `{name, url}`; returns the signing secret once. Manage with `PATCH`/`DELETE /v1/forwards/{id}`, `POST /v1/forwards/{id}/resume`, `/rotate-secret`, `/test`, `/replay`. See [Relay Streams](/relay/guides/streams). |
+| `POST /v1/topics/{id}/forwards` | (console session) add a forward target `{name, url}`; returns the signing secret once. Manage with `PATCH`/`DELETE /v1/forwards/{id}`, `POST /v1/forwards/{id}/resume`, `/rotate-secret`, `/test`, `/replay`. See [Relay Streams](/relay/streams). |
 
 ## Topics and devices
 
@@ -115,7 +115,7 @@ result with `duplicate: true` and sends nothing.
 ```
 
 - `accepted`: phones queued for delivery.
-- `rejected`: envelopes that were skipped, each with a `reason` (see [Errors](/relay/reference/errors)).
+- `rejected`: envelopes that were skipped, each with a `reason` (see [Errors](/relay/api/errors)).
 - `missing`: active phones you sent no envelope for, usually because one paired after you fetched
   keys. Fetch recipients again and resend once; the SDK does this for you.
 
@@ -125,7 +125,7 @@ result with `duplicate: true` and sends nothing.
 	Here you send your message in **plaintext** and Relay's servers encrypt it for each phone. That
 	means **Relay can read the message while it handles your request**. It is not stored or logged,
 	but it is **not end-to-end encrypted**, and the phone marks it with a *Server-assisted* badge.
-	The [SDK](/relay/guides/sdk) and [CLI](/relay/guides/cli) encrypt on your machine so Relay never
+	The [SDK](/relay/sdk) and [CLI](/relay/cli) encrypt on your machine so Relay never
 	sees your content. Use this only when you truly cannot run either (for example a device that can
 	only make a plain HTTP request) and you accept that trade-off.
 </Callout>
@@ -157,11 +157,11 @@ curl -s -X POST https://relay.phuzle.com/v1/trigger/push \
 | `title` | string | required, up to 120 characters |
 | `body` | string | up to 1000 characters |
 | `priority` | `min` `low` `default` `high` `urgent` | default `default` |
-| `icon` | string | a built-in icon name such as `rocket`, `flame`, `bug` (see the [message schema](/relay/reference/message-schema)) |
+| `icon` | string | a built-in icon name such as `rocket`, `flame`, `bug` (see the [message schema](/relay/api/message-schema)) |
 | `url` | string | https only; the notification opens the message and then this link in an in-app browser |
 | `tags` | string[] | up to 5, 24 characters each |
 | `group` | string | notifications with the same group stack |
-| `actions` | object[] | up to 3 buttons, each with a `label` and either a `link` (opens a page) or a `request` (sent from the phone), as in the [message schema](/relay/reference/message-schema) |
+| `actions` | object[] | up to 3 buttons, each with a `label` and either a `link` (opens a page) or a `request` (sent from the phone), as in the [message schema](/relay/api/message-schema) |
 | `ttlSeconds`, `collapseKey` | | as for `POST /v1/trigger` |
 
 It follows the same rules as the normal endpoint (the same validation as the SDK, the 2 KiB
@@ -172,14 +172,14 @@ and `409 no_recipients` (no phone is paired to the topic yet).
 
 ## Build the envelopes
 
-Each envelope is the [message](/relay/reference/message-schema) sealed to one phone with HPKE.
-The exact steps and test vectors are in [Encryption](/relay/concepts/encryption).
+Each envelope is the [message](/relay/api/message-schema) sealed to one phone with HPKE.
+The exact steps and test vectors are in [Encryption](/relay/security/encryption).
 
 ## Limits
 
 - A plan has a daily trigger cap per organization; going over returns `429 quota_exceeded` with
-  `Retry-After`. See [Plans and limits](/relay/concepts/limits).
+  `Retry-After`. See [Plans and limits](/relay/console/limits).
 - Each key also has a short burst limit; a `429` always includes `Retry-After` (seconds).
 - Request bodies are capped at 1 MB; the plaintext message at 2 KiB.
 
-Errors are described in [Errors](/relay/reference/errors).
+Errors are described in [Errors](/relay/api/errors).

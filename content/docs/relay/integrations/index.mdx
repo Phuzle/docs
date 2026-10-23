@@ -15,7 +15,7 @@ You can pause, rotate the secret or remove an integration at any time.
 	These services can't encrypt for your phone, so Relay turns each event into a message and encrypts
 	it itself. The content exists only in memory (or sealed with a server key while queued) and is never
 	stored or logged, but it is **not end-to-end encrypted**. The app shows a *Server-assisted* badge.
-	See [Encryption](/relay/concepts/encryption).
+	See [Encryption](/relay/security/encryption).
 </Callout>
 
 ## Sources
@@ -48,7 +48,7 @@ dialog (or later with the key button). Until you do, deliveries from that servic
 
 Each integration sends its events to **Phones** (a notification), **Servers** (the raw webhook, live, to your own
 code through the SDK or `relay listen`), or both. Choose when you add it, or change it any time with the switches
-on the integration. At least one must stay on. See [Relay Streams](/relay/guides/streams).
+on the integration. At least one must stay on. See [Relay Streams](/relay/streams).
 
 ## What gets notified
 

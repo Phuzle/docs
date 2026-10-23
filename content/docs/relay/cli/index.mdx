@@ -18,9 +18,9 @@ The CLI encrypts on your machine, then sends. Sign in once, or use an API key.
 relay login
 ```
 
-It prints a short code (like `BCDF-GHJK`) and opens your browser. Sign in to the console, check the code matches, pick the organisation
+It prints a short code (like `BCDF-GHJK`) and a link; press **Enter** to open it in your browser (nothing opens until you do, and you can open the link on another device). Sign in to the console, check the code matches, pick the organisation
 and what this machine may do (send to all or some topics, receive events, create topics) and how long the key lasts, then approve. The
-CLI picks the key up on its own; there is nothing to copy. Add `--no-browser` on a server or over SSH and open the link yourself, or
+CLI picks the key up on its own; there is nothing to copy. Add `--no-browser` on a server or over SSH (or when there is no terminal) and open the link yourself, or
 pre-fill the choices with `--org`, `--send all|<topic>,…`, `--receive …` and `--create-topics` (you still decide on the page).
 
 The key is kept in `~/.relay/credentials.json` (readable only by you), per API URL, and shows up in **API keys** in the console marked

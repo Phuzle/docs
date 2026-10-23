@@ -44,6 +44,19 @@ relay send --topic acme-alerts --title "Backup finished" --body "412 GB in 6 min
 On success it prints `sent <id> → 2 devices` and exits `0`. Any failure prints a one-line reason
 and exits `1`, so it works in `set -e` scripts and CI steps.
 
+## Save your defaults
+
+```bash
+relay configure                                  # asks for each value; Enter keeps the current one
+relay configure --name shivam-cli --api-url https://relay.example.com
+relay configure list                             # the API key is shown masked
+relay configure unset api-key
+```
+
+`configure` keeps the API URL, API key and the consumer name for `relay listen` in `~/.relay/config.json` (readable only by you), so
+you stop repeating flags. Order of precedence: a flag, then the environment variable (`RELAY_API_URL`, `RELAY_API_KEY`,
+`RELAY_CONSUMER_NAME`), then this file, then a `relay login`, then the default. The SDK never reads the file.
+
 ## Topics and devices
 
 ```bash

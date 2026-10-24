@@ -144,7 +144,7 @@ On the command line: `relay listen --type push --type pull_request`.
 ## Forward to a URL (serverless and hosted apps)
 
 If your app can't hold a connection open (a serverless function, a hosted app), let Relay call **you**. On a topic's
-**Servers** tab, **Forward to a URL → Add target**, and give it an `https://` address. Relay then `POST`s each event
+**Servers** section, **Forward to a URL → Add target**, and give it an `https://` address. Relay then `POST`s each event
 from the topic's “Servers” integrations to it. Forwarding is part of Pro (3 targets per topic) and Team (20).
 
 > **Trust:** unlike the SDK, a forwarded event is readable by Relay while it is delivered (it waits in a queue sealed

@@ -10,15 +10,30 @@ description: A tour of relay.phuzle.com, where you manage topics, phones, keys a
 | **Overview** | Messages, deliveries, failures and latency for the period you pick, plus where messages come from and your busiest topics. Updates live. |
 | **Send** | Compose and send a full notification to a topic without any code. See below. |
 | **Activity** | The latest messages across every topic, with how many phones received each. Message content is never stored. |
-| **Topics** | Create topics and open one to see its phones, activity, integrations and settings. |
+| **Topics** | Create topics and open one for its own pages (see below). |
 | **Devices** | Every paired phone and when it was last seen. Give a phone a nickname to tell it apart. |
-| **Servers** (on a topic) | The server consumers subscribed to the topic through [Relay Streams](/relay/streams): whether each is connected, when it last got an event, and a snippet to connect one. |
 | **API keys** | Create, rotate and revoke the keys your code uses. Each key says which topics it can send to and, with **Can create topics**, whether it may create new ones (only keys that can send to all topics can). |
 | **Members** | Invite teammates with a link and set their role. See [Members and roles](/relay/console/members-and-roles). |
 | **Usage** | How much of your plan's limits you are using. See [Plans and limits](/relay/console/limits). |
 
 The account menu (top right) has your profile, billing, organization settings and the theme.
 Press `⌘K` to jump to any page or topic.
+
+## A topic's own pages
+
+Opening a topic collapses the main menu to icons and shows a menu for that topic, so everything about it is in one place:
+
+| Page | What it is for |
+|---|---|
+| **Overview** | The same picture as the main Overview, for this topic only: messages, deliveries, failures and latency against the previous period, a deliveries chart, where messages come from, your busiest day, the delivery rate and a table of how each phone is doing. Pick 24 hours, 7 days or 30 days. |
+| **Devices** | The phones receiving the topic; pair a new one here. |
+| **Activity** | Every message sent to the topic and how it was delivered, with retry for failed deliveries. |
+| **Integrations** | Webhooks from GitHub and other services that notify the topic (admins). |
+| **Servers** | The server consumers subscribed to the topic through [Relay Streams](/relay/streams): whether each is connected, when it last got an event, and a snippet to connect one (admins). |
+| **Settings** | Name, colour and deleting the topic (admins). |
+
+Each page has its own address (`/dashboard/topics/<id>/devices`, and so on), so you can bookmark or share a link to it.
+Code samples such as **Send from code** and **Receive in code** are collapsed until you open them.
 
 ## Send a message from the console
 

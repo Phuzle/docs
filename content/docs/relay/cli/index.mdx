@@ -57,6 +57,12 @@ relay configure unset api-key
 you stop repeating flags. Order of precedence: a flag, then the environment variable (`RELAY_API_URL`, `RELAY_API_KEY`,
 `RELAY_CONSUMER_NAME`), then this file, then a `relay login`, then the default. The SDK never reads the file.
 
+## Help and version
+
+`relay --help` lists the commands; `relay <command> --help` (or `-h`, or `relay help <command>`) shows one command's options and
+examples. `relay --version` (or `-v`) prints the version. Errors say what went wrong, then what to do about it, for example which
+setting a refused key needs.
+
 ## Topics and devices
 
 ```bash
@@ -80,7 +86,9 @@ tail it, or pass a named pipe (`mkfifo`) to feed one directly. An event counts a
 it stays on Relay and comes back.
 
 `listen` prints each event and, with `--forward`, POSTs it to your local server with the original headers: a
-webhook tunnel with no public address. Options: `--name` (the consumer's name, default `cli`), `--key`
+webhook tunnel with no public address. It says what it is doing (connecting, connected, reconnecting, stopped), with the time in
+front of every status line, and Ctrl-C stops it cleanly, even while it is still retrying to connect. Options: `--name` (the
+consumer's name shown in the console, default `cli`, or `RELAY_CONSUMER_NAME`; use something like `shivam-cli` to tell machines apart), `--key`
 (otherwise `RELAY_CONSUMER_KEY`, otherwise a key kept in `~/.relay/consumers`), `--from last-acked|latest|<seq>`, `--json`, `--count N`.
 An event is marked handled once it is printed or, with `--forward`, once your server answers below 500; otherwise it
 comes back after 30 seconds.

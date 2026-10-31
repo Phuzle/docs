@@ -1,0 +1,172 @@
+---
+title: SDK reference
+description: Every option, method, field, default, limit and error of @phuzle/relay.
+---
+
+The [SDK guide](/relay/sdk) shows how it fits together; this page lists everything you can pass and what comes back.
+
+## `new Relay(options)`
+
+```ts
+import { Relay } from "@phuzle/relay";
+const relay = new Relay({ apiKey: "rly_…", baseUrl: "http://localhost:8400", maxRetries: 2 });
+```
+
+| Option | Type | Default | |
+|---|---|---|---|
+| `apiKey` | string | required | A Relay API key: starts with `rly_` (console) or `rly_cli_` (made by `relay login`). Anything else throws `bad_api_key` before any request. |
+| `baseUrl` | string | `https://relay.phuzle.com` | Origin of the Relay to talk to (local, staging, self-hosted). Must be `http(s)://`; a path prefix is kept, a trailing slash is dropped. Otherwise `bad_base_url`. |
+| `maxRetries` | number | `2` | Extra attempts for network failures and `5xx` answers, waiting 250 ms, 500 ms… Never for `4xx`. Sends are safe to retry because every message has an idempotency key. |
+| `fetch` | `typeof fetch` | global `fetch` | Your own fetch (proxies, tests). |
+
+`Relay.fromEnv(env = process.env, overrides = {})` builds one from `RELAY_API_KEY` and, if set, `RELAY_API_URL`. `overrides`
+(`baseUrl`, `fetch`, `maxRetries`) win over the environment. The SDK never reads `~/.relay`; that is only for the [CLI](/relay/cli/reference).
+
+`Relay.generateConsumerKey()` returns a new 43-character key for [`subscribe`](#subscribe). It is created on your machine; Relay never sees it and cannot recover it.
+
+## `relay.send(message)`
+
+Encrypts the message for every phone on the topic and sends it. Returns a [`SendResult`](#sendresult).
+
+| Field | Type | Default | Rules |
+|---|---|---|---|
+| `topic` | string | required | The full name, `<org>-<topic>` (`acme-alerts`), as `relay.topics()` returns it as `fullName`. |
+| `title` | string | required | Not blank, up to 120 characters. |
+| `body` | string | none | Up to 1000 characters. |
+| `priority` | `"min"` `"low"` `"default"` `"high"` `"urgent"` | `"default"` | Maps to the delivery priority and the notification channel on the phone. Visible to Relay (it needs it to route). |
+| `tags` | string[] | none | Up to 5, each up to 24 characters. |
+| `icon` | string | none | One of the built-in names in the [message schema](/relay/api/message-schema). Unknown names throw `invalid_message`, listing the valid ones. |
+| `url` | string | none | `https://` only. Tapping the notification opens the message, then this link. |
+| `image` | string | none | `https://` only, up to 1000 characters. The phone loads it only if the user turned on **Load images** for the topic. |
+| `group` | string | none | Notifications with the same group stack together. |
+| `actions` | `Action[]` | none | Up to 3 buttons, see [Actions](#actions). |
+| `ttlSeconds` | integer | `86400` | How long delivery keeps trying while the phone is offline: `0` to `2419200` (4 weeks). |
+| `collapseKey` | string | none | Up to 64 characters. A newer message with the same key replaces an older one that hasn't been delivered yet. |
+| `idempotencyKey` | string | the message id | Retrying with the same key within 24 hours sends nothing again and returns the first result with `duplicate: true`. |
+| `deliverAt` | `Date` or ISO string | now | Hold delivery until then, up to 30 days ahead. A past time means now. Not together with `delaySeconds`. |
+| `delaySeconds` | number | none | Shorthand for `deliverAt: now + delaySeconds`. |
+| `repeat` | `{ everySeconds, times }` | none | Re-send until a phone acknowledges it. `everySeconds` 60 to 86400, `times` 1 to 20. See [On-call](/relay/sdk/on-call). |
+| `escalate` | object | none | If nobody acknowledges within `afterSeconds` (at least 30), also deliver to another topic: `{ topic, afterSeconds, title?, body?, priority?, repeat? }`. Unset fields come from the original; `priority` defaults to `"urgent"`. |
+| `unlessAcked` | string (message id) | none | Advanced: deliver only if that message is still unacknowledged then. This is what `escalate` uses. |
+
+The whole message, once built, must fit in **2048 bytes**; otherwise `send` throws `PayloadTooLargeError` before anything leaves your machine.
+Breaking a rule above throws a `RelayError` with `code: "invalid_message"` and a message that names the field.
+
+### Actions
+
+A button is either a request sent from the phone **or** a link, never both.
+
+| Field | Type | |
+|---|---|---|
+| `label` | string | required, up to 30 characters |
+| `request` | `{ method, url, headers?, body? }` | `method` is `GET` `POST` `PUT` `PATCH` or `DELETE`; `url` is `https://`. Headers and body are inside the encrypted message, so secrets in them stay private. |
+| `link` | string | an `https://` page to open in the browser (up to 1000 characters) |
+| `style` | `"default"` `"destructive"` | request buttons only |
+| `confirm` | boolean | ask before sending the request; defaults to `true` for `destructive` |
+| `retry` | boolean | retry the request if the phone is offline; default `false` |
+| `id` | string | defaults to `a1`, `a2`… |
+
+### `SendResult`
+
+| Field | |
+|---|---|
+| `messageId` | The id of the message (a ULID). |
+| `accepted` | Phones queued for delivery. |
+| `rejected` | `{ deviceId, reason }[]`: phones skipped, with the [reason](/relay/api/errors#per-phone-results). |
+| `missing` | Phone ids that had no envelope, normally paired after the keys were fetched. The SDK already refreshed and retried once; what's left here is what still failed. |
+| `duplicate` | `true` when an `idempotencyKey` repeat returned the earlier result. |
+| `scheduledFor` | ISO time, when delivery is held. |
+| `escalation` | With `escalate`: the second message's own result. |
+
+It throws `no_recipients` when nobody has paired to the topic yet.
+
+## Topics and devices
+
+| Method | Returns | Needs |
+|---|---|---|
+| `relay.topics()` | `{ topics, canCreate }`. Each topic: `id`, `slug`, `fullName`, `name`, `description`, `devices` (phones receiving it), `createdAt`. | any key; it lists what the key may send to |
+| `relay.createTopic({ slug, name, description? })` | the new `Topic` | **Can create topics** on the key. `slug`: 2 to 32 lowercase letters, numbers and single hyphens. Not retried automatically. |
+| `relay.devices(topic)` | `TopicDevice[]`: `id`, `nickname`, `name`, `model`, `platform`, `appVersion`, `lastSeenAt`, `subscribedAt` (never keys or tokens) | a key allowed to send to that topic |
+| `relay.topic(name)` | a handle with `send(message)` (topic filled in), `devices()` and `subscribe(options)` | none |
+
+## `subscribe`
+
+`relay.subscribe(topic, options)` (or `relay.topic(topic).subscribe(options)`) receives a topic's events, see [Relay Streams](/relay/streams).
+It needs a key with **Can receive events** for the topic and returns a `Subscription` immediately; it connects when you start iterating or call `ready()`.
+
+| Option | Type | Default | |
+|---|---|---|---|
+| `name` | string | required | The consumer's name: 2 to 40 characters, lowercase letters, numbers and single hyphens. Every process with the same name and key is the same consumer. |
+| `key` | string | `RELAY_CONSUMER_KEY` | The consumer key. Without either, `consumer_key_required`. |
+| `from` | `"last-acked"` `"latest"` or a sequence number | `"last-acked"` | Where the **first** connection starts. After a dropped connection it always resumes from what is unacknowledged. A number replays from that sequence number, within your plan's retention. |
+| `filter` | `StreamFilter` | none | What Relay does before storing an event for you, see [Filters](#filters). |
+| `prefetch` | number | `20` | Events handed to you at once (1 to 100). Relay sends no more until you acknowledge some. |
+| `lease` | number | `30` | Seconds you have to acknowledge an event before it comes back (5 to 300). |
+| `format` | `"bin"` `"sse"` | `"bin"` | The wire encoding. `bin` is about a quarter smaller; the SDK falls back to `sse` by itself. |
+| `ack` | `"auto"` `"manual"` | `"auto"` | `auto`: an event counts as handled when your `for await` loop asks for the next one, so one that throws comes back. `manual`: only `ev.ack()` acknowledges. |
+
+### `Subscription`
+
+| Member | |
+|---|---|
+| `for await (const ev of sub)` | The events, in order. Reconnects by itself. Throws a `StreamError` for failures that retrying cannot fix (wrong key scope, unknown topic, plan limit). |
+| `await sub.ready()` | Resolves once the consumer is registered and the stream open; rejects with the reason otherwise. |
+| `sub.close()` | Stops. Events you had received but not handled go back to the topic immediately. |
+| `sub.state` | `"connecting"` `"open"` `"reconnecting"` or `"closed"` |
+| `sub.on("open", fn)` | Connected (also after each reconnect). |
+| `sub.on("reconnecting", fn)` | `fn({ attempt, reason })` |
+| `sub.on("gap", fn)` | `fn({ fromSeq, toSeq, count, reason })`: events dropped before you took them. `reason` is `expired` (you were away longer than your retention), `overflow` or `egress`. |
+| `sub.on("error", fn)` | A non-fatal problem, such as a failed acknowledgement (those events just come back). |
+
+### A `StreamEvent`
+
+| Field | |
+|---|---|
+| `id` | Relay's id for the event (a ULID). Stable: use it to ignore repeats. |
+| `seq` | The topic's sequence number: increasing, shared by every consumer. |
+| `source` | Where it came from: `github`, `stripe`, `webhook`… |
+| `type` | The provider's event name: `push`, `pull_request`, `invoice.paid`… |
+| `deliveryId` | The provider's own delivery id when it sends one, else `null`. |
+| `receivedAt` | When Relay received it (ISO). |
+| `headers` | The descriptive headers of the original request, lower-cased. Never credentials. |
+| `contentType` | The original content type, or `null`. |
+| `body` | The original body, byte for byte as text. `null` when it was over your plan's event limit (`truncated: true`). |
+| `bodyBytes` | Its size in bytes. |
+| `truncated` | The body wasn't carried because of its size. |
+| `projected` | The body was cut down by `filter.project`, so it isn't the original bytes (don't verify the provider's signature on it). |
+| `attempt` | How many times this event has been handed out. `1` is the first. |
+| `json<T>()` | The body parsed as JSON; throws if there is none or it isn't JSON. |
+| `ack()` | Mark it handled. Required with `ack: "manual"`, optional otherwise. Acknowledgements are batched into one request. |
+| `nack()` | Hand it back at once instead of after the lease. |
+
+### Filters
+
+`filter` is applied by Relay before an event is stored for you, so unwanted events cost nothing. The latest registration wins.
+
+| Field | |
+|---|---|
+| `types` | Only these event types. |
+| `where` | Every condition must hold on the JSON body. |
+| `ignoreWhen` | Skip the event when any of these holds. |
+| `project` | Keep only these JSON paths of the body, such as `["repository.full_name", "commits[].message"]`. |
+| `collapseKey` | A template like `"{{repository.full_name}}:{{ref}}"`: a newer event with the same key replaces an older one still waiting. |
+
+A condition is `{ path, op, value? }` where `op` is `equals`, `not_equals`, `contains`, `exists`, `gt` or `lt`.
+
+## Errors
+
+`RelayError` has `message`, `status` (HTTP status, `0` when nothing was sent), `code` (stable: branch on it, not on the message) and, for `429`, `retryAfterSeconds`.
+`StreamError` (from a subscription) has the same `status` and `code`.
+
+| `code` | When |
+|---|---|
+| `bad_api_key` | The key doesn't start with `rly_`, or Relay refused it (`401`). |
+| `bad_base_url` | `baseUrl` isn't an http(s) URL. |
+| `invalid_message` | A rule above was broken. The message names the field. |
+| `no_recipients` | No phone is paired to the topic. |
+| `bad_key_binding` / `key_changed` | A phone's keys don't verify, or a known phone changed its identity key. The send is refused. |
+| `network` | Relay couldn't be reached (retried `maxRetries` times first). |
+| `consumer_key_required` | `subscribe` without a key. |
+| `scope_denied`, `topic_limit`, `slug_taken`, `quota_exceeded`, … | Answers from Relay, see [Errors](/relay/api/errors). |
+
+`PayloadTooLargeError` (exported too) means the built message is over 2 KiB.

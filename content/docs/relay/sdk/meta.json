@@ -2,6 +2,7 @@
   "title": "SDK",
   "pages": [
     "index",
+    "reference",
     "on-call"
   ]
 }

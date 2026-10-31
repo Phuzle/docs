@@ -1,0 +1,138 @@
+---
+title: CLI reference
+description: Every relay command, flag, default, environment variable and exit code.
+---
+
+The [CLI guide](/relay/cli) walks through using it; this page lists everything. `relay <command> --help` shows the same thing in your terminal.
+
+## Global
+
+| | |
+|---|---|
+| `-h`, `--help` | Show help. `relay <command> --help` or `relay help <command>` for one command. |
+| `-v`, `--version` | Print the version. |
+| `--api-url <url>` | On every command that talks to Relay: the server to use. |
+
+**Exit code:** `0` on success, `1` on any failure (the reason and a hint on what to do go to stderr). `listen` stopped with Ctrl-C exits `0`.
+
+**Colours and spinners** are used only on a terminal. `NO_COLOR` turns colours off, `FORCE_COLOR` forces them, and piped output or `TERM=dumb` is plain.
+
+### Where values come from
+
+For the API URL, API key and consumer name the first match wins:
+
+1. the flag (`--api-url`, `--name`)
+2. the environment variable
+3. `~/.relay/config.json` (set by [`relay configure`](#relay-configure))
+4. the key stored by [`relay login`](#relay-login) (`~/.relay/credentials.json`)
+5. the default (`https://relay.phuzle.com`; consumer name `cli`)
+
+| Environment variable | |
+|---|---|
+| `RELAY_API_KEY` | API key. Required for `send`, `topics`, `devices` and `listen` unless you ran `relay login`. |
+| `RELAY_API_URL` | Relay server. |
+| `RELAY_CONSUMER_NAME` | Consumer name for `listen`. |
+| `RELAY_CONSUMER_KEY` | Consumer key for `listen`. |
+| `RELAY_HOME` | Where the CLI keeps its files instead of `~/.relay`. |
+
+## `relay login`
+
+Sign in through the browser. It prints a code and a link and waits for you to press **Enter** before opening anything.
+
+| Flag | |
+|---|---|
+| `--no-browser` | Never open a browser; open the link yourself, on any device. Also what happens without a terminal. |
+| `--org <slug>` | Pre-select an organisation on the approval page. |
+| `--send all\|<topic>,…` | Pre-select which topics the key may send to. |
+| `--receive all\|<topic>,…` | Pre-select which topics it may receive events from. |
+| `--create-topics` | Pre-select **Can create topics**. |
+
+These only pre-fill the page; you still choose there. Only an organisation admin or owner can approve. The code expires after 10 minutes. The key is stored in `~/.relay/credentials.json` per API URL.
+
+## `relay whoami` · `relay logout`
+
+`whoami` shows the organisation, the key's permissions and when it expires. `logout` revokes the key `login` made and forgets it. Neither takes flags other than `--api-url`.
+`logout` refuses a key from the console (`not_a_cli_key`); revoke those there.
+
+## `relay configure`
+
+```bash
+relay configure                                   # asks for each value (Enter keeps it)
+relay configure --api-url https://relay.example.com --api-key rly_… --name shivam-cli
+relay configure list | get <setting> | unset <setting>… | path
+```
+
+| Setting | Flag | Used as |
+|---|---|---|
+| `api-url` | `--api-url <url>` | `RELAY_API_URL` |
+| `api-key` | `--api-key <key>` | `RELAY_API_KEY` (shown masked by `list`) |
+| `name` | `--name <consumer>` | `RELAY_CONSUMER_NAME`: 2 to 40 characters, lowercase letters, numbers and single hyphens |
+
+Saved to `~/.relay/config.json`, readable only by you. `path` prints where that is.
+
+## `relay send`
+
+```bash
+relay send --topic acme-alerts --title "Deploy failed" --body "api-3 exited 137" --priority high
+```
+
+| Flag | Value | Notes |
+|---|---|---|
+| `--topic` | `<org>-<topic>` | **Required.** |
+| `--title` | text | **Required.** Up to 120 characters. |
+| `--body` | text | Up to 1000 characters. |
+| `--priority` | `min` `low` `default` `high` `urgent` | Default `default`. |
+| `--url` | `https://…` | Opened when the notification is tapped. |
+| `--image` | `https://…` | Shown only if the user turned on **Load images** for the topic. |
+| `--icon` | name | A [built-in icon](/relay/api/message-schema). |
+| `--tag` | text | Repeat for up to 5; each up to 24 characters. |
+| `--group` | text | Notifications with the same group stack. |
+| `--ttl` | seconds | How long to keep trying while the phone is offline; default 86400 (24 h), max 2419200. A plain number, not `10m`. |
+| `--action` | `"Label=METHOD https://url"` | A button that sends a request from the phone. `Label!=` makes it destructive (asks first). Repeat. `METHOD` is GET, POST, PUT, PATCH or DELETE. |
+| `--link` | `"Label=https://url"` | A button that opens a page. Repeat. |
+| `--delay` | duration | Hold delivery: `90s`, `10m`, `2h`, `1d` (a bare number is seconds). Up to 30 days. |
+| `--at` | ISO time | Deliver at a time, such as `2026-10-07T09:00:00Z`. Not together with `--delay`. |
+| `--repeat` | `<every>:<times>` | `5m:3`: every 5 minutes, up to 3 more times, until a phone acknowledges. Every 1 minute to 24 hours; times 1 to 20. |
+| `--escalate-topic` | `<org>-<topic>` | Also notify this topic if nobody acknowledges. |
+| `--escalate-after` | duration | **Required with** `--escalate-topic`; at least 30 s. |
+| `--escalate-title` | text | Title for the escalation (otherwise the original's). It is sent as `urgent`. |
+
+`--action` and `--link` share the limit of 3 buttons. On success it prints `sent <id> → N devices` (plus `scheduled for …` or the escalation id when relevant).
+Anything over the [limits](/relay/sdk/reference#relaysendmessage) fails before sending. The CLI does not set `--json`, `--idempotency-key` or `--collapse-key`; use the [SDK](/relay/sdk/reference) for those.
+
+## `relay topics`
+
+| Form | |
+|---|---|
+| `relay topics [--json]` | The topics this key may send to, with phone counts, and whether it can create more. |
+| `relay topics create <slug> --name <text> [--description <text>]` | Create one. `<slug>`: 2 to 32 lowercase letters, numbers and single hyphens. Needs **Can create topics** on the key. |
+
+## `relay devices`
+
+`relay devices --topic <org-topic> [--json]`: the phones receiving a topic (nickname, model, platform, app version, last seen). The key must be allowed to send to the topic.
+
+## `relay key`
+
+Prints a new consumer key (43 characters). Keep it secret; Relay never sees it. You only need it to share one consumer between machines: `listen` otherwise creates and keeps one per topic and name in `~/.relay/consumers`.
+
+## `relay listen`
+
+Receive a topic's webhooks on this machine. See [Relay Streams](/relay/streams). Needs a key with **Can receive events** for the topic.
+
+```bash
+relay listen --topic acme-github-api --forward http://localhost:3000/webhooks/github
+```
+
+| Flag | Value | Notes |
+|---|---|---|
+| `--topic` | `<org>-<topic>` | **Required.** |
+| `--forward` | `http(s)://…` | POST each event to this URL with its original headers and body, as the provider would have. Handled once your server answers below 500; otherwise it comes back after the 30 s lease. |
+| `--out` | file | Append each event as one JSON line (the object `--json` prints). Handled once written. A named pipe works. |
+| `--json` | none | Print each event as JSON instead of a summary line. |
+| `--type` | event type | Only these event types (`push`, `pull_request`…); repeat for several. Filtered by Relay, so other events cost nothing. |
+| `--name` | text | The consumer's name in the console. Default `cli` or `RELAY_CONSUMER_NAME`. The same name is the same consumer. |
+| `--key` | consumer key | Default `RELAY_CONSUMER_KEY`, else the key kept in `~/.relay/consumers`. |
+| `--from` | `last-acked` `latest` or a number | Where to start. Default `last-acked`: whatever you haven't handled yet. `latest` skips the waiting events; a number replays from that sequence number. |
+| `--count` | number | Stop after that many events. |
+
+With no `--forward` or `--out`, events are printed. Every status line carries the time. It reconnects by itself, warns about dropped events (a "gap"), and Ctrl-C stops it cleanly.

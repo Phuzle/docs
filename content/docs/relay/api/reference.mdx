@@ -1,0 +1,133 @@
+---
+title: API reference
+description: Every public endpoint with its parameters, headers, scopes, responses and errors.
+---
+
+The [Trigger API](/relay/api) page shows how to send; this page lists each endpoint a key can call. The live OpenAPI spec is at
+`https://relay.phuzle.com/openapi.json` and an interactive viewer at `https://relay.phuzle.com/docs`.
+
+## Conventions
+
+- **Base URL** `https://relay.phuzle.com`, all routes under `/v1`. JSON in and out, **camelCase** fields.
+- **Auth** `Authorization: Bearer <key>`. A bad, revoked or expired key is `401 bad_api_key`.
+- **Errors** `{ "error": "…", "code": "…" }`, plus `details: [{ path, message }]` for validation. See [Errors](/relay/api/errors).
+- **Rate limits** a `429` always has `Retry-After` (seconds).
+
+### Key permissions
+
+A key carries a list of permissions, chosen in the console (or on the `relay login` approval page):
+
+| Permission | Allows |
+|---|---|
+| `trigger:*` | Send to every topic, and list them. |
+| `trigger:<topic>` | Send to one topic (its short name, such as `alerts`). |
+| `subscribe:*` / `subscribe:<topic>` | Receive that topic's events ([Streams](/relay/streams)). Shown as **Can receive events**. |
+| `topics:create` | Create topics. Only valid together with `trigger:*`. Shown as **Can create topics**. |
+
+A call the key isn't allowed to make is `403 scope_denied`.
+
+## Sending
+
+### `GET /v1/trigger/recipients`
+
+The phones on a topic and their public keys, so you can encrypt. Needs `trigger`.
+
+| Query | | |
+|---|---|---|
+| `topic` | string | **Required.** Full name, `<org>-<topic>`. |
+
+| Header | |
+|---|---|
+| `If-None-Match` | The `ETag` of a previous answer. `304` with no body when the set of phones is unchanged. |
+
+`200` → `{ topicId, keysetVersion, recipients: [{ deviceId, idPub, encPub, bindSig, keysetVersion }] }` and an `ETag` header.
+Verify each `bindSig` (an Ed25519 signature by `idPub` over `encPub`) before encrypting; see [Encryption](/relay/security/encryption).
+`404` unknown topic, `403 scope_denied`.
+
+### `POST /v1/trigger`
+
+Queue an encrypted message. Needs `trigger`. Responds `202`.
+
+| Header | |
+|---|---|
+| `Idempotency-Key` | Optional. A repeat within 24 hours returns the first result with `duplicate: true` and sends nothing. |
+
+| Body field | Type | |
+|---|---|---|
+| `topic` | string, 3 to 80 | **Required.** Full topic name. |
+| `messageId` | string | **Required.** A ULID you choose; also sealed inside every envelope. |
+| `envelopes` | `{ deviceId, enc, ct }[]`, 1 to 50 | **Required.** One per phone. `deviceId` is 22 characters, `enc` the 43-character HPKE encapsulated key, `ct` the ciphertext (22 to 4000 characters), all base64url. |
+| `priority` | `min` `low` `default` `high` `urgent` | Default `default`. Visible to Relay (it picks the delivery priority). |
+| `ttlSeconds` | integer 0 to 2419200 | Default 86400. How long delivery keeps trying while the phone is offline. |
+| `collapseKey` | string, up to 64 | A newer message with the same key replaces an undelivered older one. Visible to Relay. |
+| `deliverAt` | ISO 8601 datetime | Hold delivery. Up to 30 days ahead (`400 invalid_schedule` beyond that); a past time means now. |
+| `repeat` | `{ everySeconds: 60–86400, times: 1–20 }` | Re-send until a phone acknowledges. |
+| `unlessAcked` | ULID | Deliver only if that message of yours is still unacknowledged then (what escalation uses). `400 unknown_message` if it isn't yours. |
+
+`202` → `{ messageId, accepted, rejected: [{ deviceId, reason }], missing: [deviceId], keysetVersion, duplicate, scheduledFor?, acknowledged? }`.
+`acknowledged: true` means the `unlessAcked` message was already acknowledged, so nothing was queued. Other errors: `413` over 1 MB, `429 quota_exceeded`.
+
+### `POST /v1/trigger/push`
+
+Last resort, server-side encryption. Fields and errors are on the [Trigger API](/relay/api#post-v1triggerpush-last-resort) page.
+
+## Topics and devices
+
+| Endpoint | Needs | |
+|---|---|---|
+| `GET /v1/trigger/topics` | any key | `200` → `{ data: [{ id, slug, fullName, name, description, devices, createdAt }], canCreate }`. A key limited to one topic sees only it. |
+| `POST /v1/trigger/topics` | `topics:create` | Body `{ slug, name, description? }`. `slug` 2 to 32 lowercase letters, numbers, single hyphens. `201` → the topic. `400 bad_slug`, `409 slug_taken`, `403 topic_limit` (plan), `403 scope_denied`; 20 creations an hour per key. |
+| `GET /v1/trigger/topics/{topic}/devices` | `trigger` for that topic | `{topic}` is the full name. `200` → `{ data: [{ id, nickname, name, model, platform, appVersion, lastSeenAt, subscribedAt }] }`. Never keys or tokens. |
+| `GET /v1/trigger/me` | any key | The key itself: `{ org: { name, slug }, key: { name, prefix, last4, source, scopes, expiresAt } }`. `source` is `console` or `cli`. |
+| `DELETE /v1/trigger/me` | a `rly_cli_` key | Revokes the key that made the call. A console key gets `403 not_a_cli_key`. |
+
+## Receiving events (Relay Streams)
+
+All need `subscribe` for the topic. `{topic}` is the full name, `{name}` the consumer's name (2 to 40 characters, lowercase letters, numbers, single hyphens).
+The SDK and CLI do all of this; use it directly only for another language. Event payloads are sealed to your consumer key; see [Streams](/relay/streams).
+
+### `PUT /v1/stream/{topic}/consumers/{name}`
+
+Register (or re-register) a consumer. Idempotent.
+
+| Body field | |
+|---|---|
+| `idPub`, `encPub`, `bindSig` | The consumer's public keys and their binding signature, derived from the consumer key (base64url). |
+| `options` | Optional: `{ types?, where?, ignoreWhen?, project?, collapseKey? }`, the [filters](/relay/sdk/reference#filters). The latest registration wins. |
+
+`200` → `{ id, name, topic, topicId, created }`. Errors: `403 consumer_limit` (your plan's consumers per topic), `400 bad_consumer_name`, `400 bad_key_binding`, `400 bad_consumer_options`.
+
+### `GET /v1/stream/{topic}/events`
+
+The event stream; stays open. Send `Accept: text/event-stream`.
+
+| Query | | |
+|---|---|---|
+| `consumer` | string | **Required.** The consumer name. |
+| `from` | `last-acked` (default), `latest` or a sequence number | Where to start. |
+| `prefetch` | 1 to 100 | Events outstanding at once. |
+| `lease` | 5 to 300 | Seconds to acknowledge before redelivery. |
+| `format` | `sse` or `bin` | `bin` is length-prefixed binary frames, 25% smaller. |
+
+Frames: `ready`, then `event` with `{ id, seq, at, source, type, size, attempt, enc, ct }` (open `enc`/`ct` with your consumer key), `gap` when events were
+dropped (`expired`, `overflow`, `egress`), `: ping` every 15 s, and `bye` when the server recycles the stream (about every 10 minutes) or removes the consumer: reconnect straight away.
+Several connections with the same name share the events.
+
+### `POST /v1/stream/{topic}/ack`
+
+| Body field | |
+|---|---|
+| `consumer` | **Required.** The consumer name. |
+| `seqs` | Up to 500 sequence numbers to acknowledge. |
+| `upTo` | Acknowledge everything up to and including this number (single-connection consumers). |
+| `nack` | Up to 500 sequence numbers to hand back at once instead of after the lease. |
+
+`200` → `{ acked, released }`.
+
+### `DELETE /v1/stream/{topic}/consumers/{name}`
+
+Remove the consumer; its open streams end with `bye`.
+
+## Not in this reference
+
+Members, API keys, billing, integrations and forwards are managed in the [console](/relay/console), which uses a signed-in session rather than a key. Their routes are in the OpenAPI spec but aren't a stable public interface.

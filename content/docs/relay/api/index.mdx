@@ -6,6 +6,8 @@ description: Send a notification with curl, the SDK or the CLI. This is the whol
 Relay's public API is two endpoints to send, plus [three to discover and create topics](#topics-and-devices) and one last-resort alternative ([below](#post-v1triggerpush-last-resort)). Everything else (members, keys, billing) is managed in the
 [console](/relay/console).
 
+Every endpoint with its parameters, headers, permissions and errors is in the [API reference](/relay/api/reference).
+
 - **Base URL:** `https://relay.phuzle.com`
 - **Auth:** `Authorization: Bearer rly_…`, an API key from the console (`rly_…`) or a key made by [`relay login`](/relay/cli) (`rly_cli_…`); both work the same. A key can be limited to one
   topic, and can be allowed to create topics.

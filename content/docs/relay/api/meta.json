@@ -2,6 +2,7 @@
   "title": "API",
   "pages": [
     "index",
+    "reference",
     "message-schema",
     "delivery",
     "errors"
